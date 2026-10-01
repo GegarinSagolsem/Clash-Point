@@ -1,0 +1,9 @@
+node_modules/
+dist/
+
+# Private project notes
+reference.md
+bugs-round*.md
+CHECKLIST.md
+PROMPTS.md
+SPEC.md

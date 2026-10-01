@@ -1,0 +1,9 @@
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+import * as THREE from 'three';
+
+const hiddenProps={Knight:['1H_Sword','1H_Sword_Offhand','2H_Sword','Badge_Shield','Rectangle_Shield','Round_Shield','Spike_Shield'],Barbarian:['1H_Axe','1H_Axe_Offhand','2H_Axe','Barbarian_Round_Shield','Mug']};
+export async function loadFighter(kind){const loader=new GLTFLoader();loader.setMeshoptDecoder(MeshoptDecoder);const gltf=await loader.loadAsync(`/models/${kind}.glb`);const root=gltf.scene;root.traverse(o=>{if(hiddenProps[kind]?.includes(o.name))o.visible=false;});root.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(root);const h=Math.max(.01,bounds.max.y-bounds.min.y);root.scale.multiplyScalar(1.85/h);root.position.y=-bounds.min.y*1.85/h;const mixer=new THREE.AnimationMixer(root);const actions={};for(const clip of gltf.animations){actions[clip.name]=mixer.clipAction(clip);}return{root,mixer,actions};}
+export function playAnimation(model,name,once=false){if(!model)return;const action=model.actions[name];if(!action)return;for(const a of Object.values(model.actions))if(a!==action)a.fadeOut(.12);action.reset();action.setLoop(once?THREE.LoopOnce:THREE.LoopRepeat,once?1:Infinity);action.clampWhenFinished=once;action.fadeIn(.12).play();}
+const props=new Map();
+export function loadProp(file){if(!props.has(file)){const loader=new GLTFLoader();props.set(file,loader.loadAsync(`/models/${file}`).then(gltf=>gltf.scene));}return props.get(file).then(root=>root.clone(true));}

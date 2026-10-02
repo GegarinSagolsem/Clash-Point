@@ -3,6 +3,7 @@ export const REGIONS = [{ id:'sg', name:'Singapore', prefix:'S' }, { id:'fra', n
 export const ARENA_RADIUS = 24;
 export const PLAYER_RADIUS = 0.3;
 export const PLAYER_SEPARATION = 1.2;
+export const CAPTURE = { teamSize: 5, pointRadius: 3.5, captureSeconds: 8, twoPlayerMultiplier: 1.5, threePlayerMultiplier: 2, scoreToWin: 100, matchSeconds: 300, respawnSeconds: 5, spawnZ: 15, spawnSpread: 6, botThinkSeconds: .3, botEnemyRadius: 7, botGuardStrafe: .7 };
 export const BODY_RADIUS = 0.4;
 export const MATCH_SECONDS = 180;
 export const MATCH_HP = 100;

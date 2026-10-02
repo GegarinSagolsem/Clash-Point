@@ -1,11 +1,11 @@
-import { DuelGame } from './game.js';
+import { DuelGame, warmGameArena } from './game.js';
 import { HomeArena } from './home.js';
 import { preferences, setPreferences } from './preferences.js';
 import { NETWORK, REGIONS } from '/shared/rules.js';
 
 const $=id=>document.getElementById(id);const screens=['home','lobby','gameScreen','result','how'];let selectedFighter=localStorage.getItem('duel-fighter')||'Knight',selectedBot=localStorage.getItem('duel-bot')||'easy';let retryWaking=()=>{},socket=null,socketHost='',game=null,roomCode='',playerId=0,ready=false,lastResult=null,priorScreen='home',audio=null,masterGain=null,lastCountdown=null,serverClockOffset=0,rejoinTimer=null,rejoinStartedAt=0,connecting=false,finishing=false,resultTimer=null,lastRtt=0,suggestedName='',lastGameState=null;
 const touchDevice=('ontouchstart' in window)||navigator.maxTouchPoints>0||matchMedia('(pointer: coarse)').matches;if(touchDevice)document.body.classList.add('touch-device');
-const homeArena=new HomeArena($('homeArena'));
+const homeArena=new HomeArena($('homeArena'));warmGameArena();
 const servers=window.GAME_SERVERS||{},online=Object.keys(servers).length>1;let selectedRegion=localStorage.getItem('area-duel-region')||'',activeHost=location.host;
 if(online){const picker=$('regionPicker');picker.classList.remove('hidden');for(const r of REGIONS){if(!servers[r.id])continue;const b=document.createElement('button');b.type='button';b.className='region-option';b.textContent=`${r.name} · …`;b.dataset.region=r.id;b.onclick=()=>{selectedRegion=r.id;localStorage.setItem('area-duel-region',r.id);document.querySelectorAll('.region-option').forEach(x=>x.classList.toggle('selected',x===b));};picker.append(b);}probeRegions();}
 async function probeRegions(){let best=null,bestMs=Infinity;await Promise.all(REGIONS.filter(r=>servers[r.id]).map(async r=>{const b=document.querySelector(`[data-region="${r.id}"]`);try{const samples=[];for(let i=0;i<3;i++){const start=performance.now(),res=await fetch(`${servers[r.id].replace(/\/$/,'')}/health`,{signal:AbortSignal.timeout(2000)});if(!res.ok)throw 0;samples.push(performance.now()-start);}const ms=Math.round(samples.reduce((a,x)=>a+x,0)/samples.length);b.textContent=`${r.name} · ${ms} ms`;b.dataset.ms=ms;if(ms<bestMs){bestMs=ms;best=r.id;}}catch{b.textContent=`${r.name} · asleep`;b.dataset.ms='99999';}}));if(!localStorage.getItem('area-duel-region')&&best){selectedRegion=best;localStorage.setItem('area-duel-region',best);}document.querySelector(`[data-region="${selectedRegion}"]`)?.classList.add('selected');}

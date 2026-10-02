@@ -11,7 +11,7 @@ const lerpColor = (a, b, t) => a.clone().lerp(b, THREE.MathUtils.clamp(t, 0, 1))
 
 function surfaceColor(x, z) {
   const d = Math.hypot(x, z), cell = Math.floor(x / 1.4) * 7919 + Math.floor(z / 1.4) * 104729;
-  const choices = [srgb(.34,.53,.20), srgb(.45,.64,.25), srgb(.27,.46,.17)];
+  const choices = [srgb(.32,.53,.21), srgb(.42,.64,.26), srgb(.25,.46,.18)];
   let c = choices[Math.floor(rng(cell) * choices.length)].clone();
   const meadow = Math.sin(x * .095 + Math.sin(z * .07)) * Math.sin(z * .082 - x * .035);
   c.lerp(srgb(meadow > .12 ? .62 : .26, meadow > .12 ? .70 : .45, meadow > .12 ? .30 : .20), Math.abs(meadow) * .34);
@@ -19,7 +19,7 @@ function surfaceColor(x, z) {
   const pathDist = Math.abs(x - pathX);
   const path = 1 - THREE.MathUtils.smoothstep(pathDist, .42, .78);
   const plaza = 1 - THREE.MathUtils.smoothstep(d, 2.5, 4.5);
-  const dirt = srgb(.68,.56,.36), stone = srgb(.64,.61,.54);
+  const dirt = srgb(.63,.52,.35), stone = srgb(.59,.54,.43);
   c.lerp(dirt, path * .92);
   c.lerp(dirt, (1 - THREE.MathUtils.smoothstep(d, 16.5, 23.7)) * .50);
   c.lerp(stone, plaza);
@@ -100,16 +100,16 @@ function addTrees(scene) {
 }
 
 function addVegetation(scene) {
-  const phone=mobile(),grassCount=phone?500:1400,flowerCount=phone?260:500,grass=[],tuft=[],flowers=[];
+  const phone=mobile(),grassCount=phone?650:1800,flowerCount=phone?260:500,grass=[],tuft=[],flowers=[];
   const clearPatch=(x,z,flower=false)=>{const d=Math.hypot(x,z),pathX=Math.sin((z+16)*.14)*2.1;return d>(flower?4.7:4.4)&&Math.abs(x-pathX)>(flower?.9:.78)&&d<22.5;};
-  for(let i=0;grass.length<grassCount||tuft.length<150;i++){
+  for(let i=0;grass.length<grassCount||tuft.length<210;i++){
     const group=Math.floor(i/8),a=rng(group+78)*TAU,r=7+Math.sqrt(rng(group+39))*15.5,cx=Math.cos(a)*r,cz=Math.sin(a)*r;
     const x=cx+(rng(i+7001)-.5)*1.05,z=cz+(rng(i+9001)-.5)*1.05;if(!clearPatch(x,z))continue;
-    const entry={x,y:.02,z,ry:rng(i+91)*TAU,sx:.75+rng(i+52)*.65,sy:.84+rng(i+14)*.33,sz:.75+rng(i+19)*.65,color:color([0x557d3b,0x70954a,0x84a752][i%3])};
+    const entry={x,y:.02,z,ry:rng(i+91)*TAU,sx:.58+rng(i+52)*.48,sy:.84+rng(i+14)*.33,sz:.58+rng(i+19)*.48,color:color([0x76a94c,0x8fbd5a,0xa2ca68][i%3])};
     if(grass.length<grassCount)grass.push(entry);else tuft.push(entry);
   }
-  const blade=new THREE.ConeGeometry(.055,.30,3);blade.translate(0,.15,0);
-  const bladeColors=[];for(let i=0;i<blade.attributes.position.count;i++){const y=blade.attributes.position.getY(i),q=THREE.MathUtils.clamp(y/.30,0,1),c=lerpColor(srgb(.34,.52,.22),srgb(.68,.78,.40),q*.72);bladeColors.push(c.r,c.g,c.b);}blade.setAttribute('color',new THREE.Float32BufferAttribute(bladeColors,3));
+  const blade=new THREE.ConeGeometry(.042,.30,3);blade.translate(0,.15,0);
+  const bladeColors=[];for(let i=0;i<blade.attributes.position.count;i++){const y=blade.attributes.position.getY(i),q=THREE.MathUtils.clamp(y/.30,0,1),c=lerpColor(srgb(.46,.65,.30),srgb(.78,.90,.48),q*.72);bladeColors.push(c.r,c.g,c.b);}blade.setAttribute('color',new THREE.Float32BufferAttribute(bladeColors,3));
   const grassMaterial=new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:1});
   grassMaterial.onBeforeCompile=shader=>{shader.uniforms.uWindTime={value:0};grassMaterial.userData.shader=shader;shader.vertexShader=shader.vertexShader.replace('#include <common>','#include <common>\nuniform float uWindTime;');shader.vertexShader=shader.vertexShader.replace('#include <project_vertex>','transformed.x += sin(uWindTime + instanceMatrix[3].x*0.13 + instanceMatrix[3].z*0.09) * max(position.y,0.0) * 0.075;\n#include <project_vertex>');};
   grassMaterial.customProgramCacheKey=()=> 'wind-grass-v1';scene.add(instanceMesh(blade,grassMaterial,grass));

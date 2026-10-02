@@ -34,4 +34,4 @@ Host the always-on front page as a static site by running `npm run build:static`
 
 ## Credits
 
-The game uses KayKit Adventurers models by Kay Lousberg (CC0); see [`public/models/LICENSE.txt`](public/models/LICENSE.txt) for details. Rendering uses [three.js](https://threejs.org/) (MIT); the server uses [Express](https://expressjs.com/) (MIT) and [ws](https://github.com/websockets/ws) (MIT). The code was written with ChatGPT.
+The game uses Kenney RPG Audio and Impact Sounds (CC0), and KayKit Adventurers models by Kay Lousberg (CC0); see [`public/models/LICENSE.txt`](public/models/LICENSE.txt) for details. Rendering uses [three.js](https://threejs.org/) (MIT); the server uses [Express](https://expressjs.com/) (MIT) and [ws](https://github.com/websockets/ws) (MIT). The code was written with ChatGPT.

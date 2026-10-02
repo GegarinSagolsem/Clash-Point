@@ -136,14 +136,14 @@ function addVegetation(scene) {
 }
 
 function addWallAndProps(scene) {
-  const radius=ARENA_RADIUS-.28, blocks=168, wall=[], caps=[];
-  for(let i=0;i<blocks;i++){const a=i/blocks*TAU,x=Math.cos(a)*radius,z=Math.sin(a)*radius;wall.push({x,y:.48,z,ry:a-Math.PI/2,sx:radius*TAU/blocks*1.05,sy:.82,sz:.62,color:color(i%5?0x88877e:0x9b988c)});caps.push({x,y:.96,z,ry:a-Math.PI/2,sx:radius*TAU/blocks*1.03,sy:.14,sz:.76,color:color(i%6?0x5e625e:0x74776d)});}
+  const radius=ARENA_RADIUS+.2, blocks=168, wall=[], caps=[];
+  for(let i=0;i<blocks;i++){const a=i/blocks*TAU,x=Math.cos(a)*radius,z=Math.sin(a)*radius;wall.push({x,y:.48,z,ry:a-Math.PI/2,sx:radius*TAU/blocks*1.05,sy:.82,sz:.2,color:color(i%5?0x88877e:0x9b988c)});caps.push({x,y:.96,z,ry:a-Math.PI/2,sx:radius*TAU/blocks*1.03,sy:.14,sz:.3,color:color(i%6?0x5e625e:0x74776d)});}
   scene.add(instanceMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0xffffff,roughness:1}),wall,true));
   scene.add(instanceMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshStandardMaterial({color:0xffffff,roughness:1}),caps,true));
-  const pillars=OBSTACLES.filter(o=>o.type==='pillar').map(o=>({x:o.x,y:o.height/2,z:o.z,sx:o.radius*2,sy:o.height,sz:o.radius*2}));
-  const rocks=OBSTACLES.filter(o=>o.type==='rock').map(o=>({x:o.x,y:o.height/2,z:o.z,sx:o.radius*2,sy:o.height,sz:o.radius*2,ry:rng(o.x+o.z)*TAU}));
+  const pillars=OBSTACLES.filter(o=>o.type==='pillar').map(o=>({x:o.x,y:o.height/2,z:o.z,sx:o.radius*.95,sy:o.height,sz:o.radius*.95}));
+  const rocks=OBSTACLES.filter(o=>o.type==='rock').map(o=>({x:o.x,y:o.height/2,z:o.z,sx:o.radius*1.1,sy:o.height*.9,sz:o.radius*1.1,ry:rng(o.x+o.z)*TAU}));
   scene.add(instanceMesh(new THREE.CylinderGeometry(1,1,1,7),new THREE.MeshStandardMaterial({color:0x8b8b80,flatShading:true,roughness:1}),pillars,true));
-  const pillarCaps=OBSTACLES.filter(o=>o.type==='pillar').map(o=>({x:o.x,y:o.height+.08,z:o.z,sx:o.radius*2.35,sy:.16,sz:o.radius*2.35}));
+  const pillarCaps=OBSTACLES.filter(o=>o.type==='pillar').map(o=>({x:o.x,y:o.height+.08,z:o.z,sx:o.radius*1.2,sy:.16,sz:o.radius*1.2}));
   scene.add(instanceMesh(new THREE.CylinderGeometry(1,1,1,7),new THREE.MeshStandardMaterial({color:0x555c56,flatShading:true,roughness:1}),pillarCaps,true));
   scene.add(instanceMesh(new THREE.DodecahedronGeometry(1,0),new THREE.MeshStandardMaterial({color:0x77786f,flatShading:true,roughness:1}),rocks,true));
   const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=128;const ctx=shadowCanvas.getContext('2d'),g=ctx.createRadialGradient(64,64,5,64,64,62);g.addColorStop(0,'rgba(20,22,17,0.38)');g.addColorStop(1,'rgba(20,22,17,0)');ctx.fillStyle=g;ctx.fillRect(0,0,128,128);const shadowMat=new THREE.MeshBasicMaterial({map:new THREE.CanvasTexture(shadowCanvas),transparent:true,depthWrite:false});

@@ -42,16 +42,16 @@ wss.on('connection', socket => {
       return;
     }
     if (msg.type === 'practice') {
-      rooms.createPractice(socket, cleanName(msg.name),msg.mode);
+      rooms.createPractice(socket, cleanName(msg.name));
       return;
     }
     if (msg.type === 'create') {
-      const result = rooms.create(socket, cleanName(msg.name),msg);
+      const result = rooms.create(socket, cleanName(msg.name));
       socket.send(JSON.stringify(result));
       return;
     }
     if (msg.type === 'join') {
-      const result = rooms.join(socket, String(msg.code || '').toUpperCase(), cleanName(msg.name),msg.team);
+      const result = rooms.join(socket, String(msg.code || '').toUpperCase(), cleanName(msg.name));
       socket.send(JSON.stringify(result));
       return;
     }
@@ -64,8 +64,6 @@ wss.on('connection', socket => {
     if (!room) return;
     switch (msg.type) {
       case 'ready': room.setReady(socket.player, !!msg.ready); break;
-      case 'configure': room.configure(socket.player,msg); break;
-      case 'team': room.chooseTeam(socket.player,msg.team); break;
       case 'rematch': room.setRematch(socket.player); break;
       case 'move': room.move(socket.player, msg); break;
       case 'dash': room.dash(socket.player); break;

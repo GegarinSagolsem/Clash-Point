@@ -4,7 +4,7 @@ Clash Point is a browser-based first-person arena fighter for two players. Creat
 
 ## How to play
 
-- Move with **WASD**, look with the mouse, jump with **Space**, and dash with **Shift**. Click the arena to capture the mouse; press **Esc** to pause.
+- Move with **WASD**, look with the mouse, jump with **Space**, and dash with **Shift**. Click the arena to lock the mouse; press **Esc** to pause.
 - Click to attack and to try a parry. Hold **right mouse** or **C** to block. Press **F** near a dropped sword or spear to swap weapons, **G** to drop your weapon or shield, and **E** to use a ready special.
 - Start with fists. Swords deal strong close-range slashes; spears thrust along a narrow line at longer range. Shields add defence and improve blocking.
 - Fill the SP meter by taking damage, blocking, or parrying. With a sword, **E** unleashes Double Strike; with a spear it triggers Lunge; with only a shield it performs Shield Bash.

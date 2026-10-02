@@ -1,12 +1,19 @@
 {
-  "name": "area-of-duel",
+  "name": "clash-point",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node server/index.js", "build:static": "node scripts/build-static.js" },
+  "scripts": {
+    "start": "node server/index.js",
+    "build:static": "node scripts/build-static.js"
+  },
   "dependencies": {
     "express": "^4.21.2",
+    "qrcode": "^1.5.4",
     "three": "^0.170.0",
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
   }
 }

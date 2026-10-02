@@ -1,6 +1,6 @@
-# Area of Duel
+# Clash Point
 
-Area of Duel is a browser-based first-person arena fighter for two players. Create a room and share its code or invite link, or practise alone against an easy bot.
+Clash Point is a browser-based first-person arena fighter for two players. Create a room and share its code or invite link, or practise alone against an easy bot.
 
 ## How to play
 

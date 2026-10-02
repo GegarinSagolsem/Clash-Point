@@ -1,4 +1,4 @@
-import { ARENA_RADIUS, BLOCK_RULES, BODY_RADIUS, COUNTDOWN_SECONDS, DASH, DROP_RULES, EASY_BOT, HIT_PUSH, MATCH_HP, MATCH_SECONDS, MAX_PING_MS, MOVEMENT, NETWORK, OBSTACLES, PICKUP_RADIUS, PLAYER_MOVE, PLAYER_RADIUS, PARRY_RULES, POTION, SHIELD_DEF, SPAWNS, SPECIAL, STAMINA, TICK_RATE, WEAPONS } from '../shared/rules.js';
+import { ARENA_RADIUS, BLOCK_RULES, BODY_RADIUS, COUNTDOWN_SECONDS, DASH, DROP_RULES, EASY_BOT, HIT_PUSH, MATCH_HP, MATCH_SECONDS, MAX_PING_MS, MOVEMENT, NETWORK, OBSTACLES, PICKUP_RADIUS, PLAYER_MOVE, PLAYER_RADIUS, PLAYER_SEPARATION, PARRY_RULES, POTION, SHIELD_DEF, SPAWNS, SPECIAL, STAMINA, TICK_RATE, WEAPONS } from '../shared/rules.js';
 import { randomUUID } from 'node:crypto';
 
 const CODES = 'ABCDEFGHJKMNPQRSTUVWXYZ';
@@ -118,7 +118,7 @@ class Room {
       const config=SPECIAL.spearLunge,fx=Math.sin(p.yaw),fz=Math.cos(p.yaw),oldX=p.x,oldZ=p.z,other=this.players[1-p.id];let travel=config.distance;
       if(other?.alive){const ox=other.x-oldX,oz=other.z-oldZ,forward=ox*fx+oz*fz,lateral=Math.abs(ox*fz-oz*fx);if(forward>0&&lateral<=config.stripHalfWidth)travel=Math.min(config.distance,Math.max(0,forward-config.stopBeforeTarget));}
       const dx=fx*travel,dz=fz*travel,steps=Math.max(1,Math.ceil(travel/.075));
-      for(let i=steps;i>0;i--){const x=oldX+dx*i/steps,z=oldZ+dz*i/steps;if(Math.hypot(x,z)<=ARENA_RADIUS-PLAYER_RADIUS&&!OBSTACLES.some(o=>Math.hypot(x-o.x,z-o.z)<o.radius+PLAYER_RADIUS)&&(!other?.alive||Math.hypot(x-other.x,z-other.z)>=PLAYER_RADIUS*2)){p.x=x;p.z=z;break;}}
+      for(let i=steps;i>0;i--){const x=oldX+dx*i/steps,z=oldZ+dz*i/steps;if(Math.hypot(x,z)<=ARENA_RADIUS-PLAYER_RADIUS&&!OBSTACLES.some(o=>Math.hypot(x-o.x,z-o.z)<o.radius+PLAYER_RADIUS)&&(!other?.alive||Math.hypot(x-other.x,z-other.z)>=PLAYER_SEPARATION)){p.x=x;p.z=z;break;}}
       p.moveBudget=0;p.history.push({t,x:p.x,z:p.z,yaw:p.yaw});this.correct(p);
       this.startSpecialSwing(p,t,{...config,weapon:'spear',reach:config.reach,arc:config.arc});
     }else if(charge.move==='shieldBash'){
@@ -153,12 +153,12 @@ class Room {
     for (let i=1;i<=steps;i++) {
       const qx=p.x+(nx-p.x)*i/steps, qz=p.z+(nz-p.z)*i/steps;
       const other=this.players[1-p.id];
-      if (Math.hypot(qx,qz) > ARENA_RADIUS-PLAYER_RADIUS || OBSTACLES.some(o => Math.hypot(qx-o.x,qz-o.z) < o.radius+PLAYER_RADIUS) || (other?.alive&&Math.hypot(qx-other.x,qz-other.z)<PLAYER_RADIUS*2)) { corrected=true; break; }
+      if (Math.hypot(qx,qz) > ARENA_RADIUS-PLAYER_RADIUS || OBSTACLES.some(o => Math.hypot(qx-o.x,qz-o.z) < o.radius+PLAYER_RADIUS) || (other?.alive&&Math.hypot(qx-other.x,qz-other.z)<PLAYER_SEPARATION)) { corrected=true; break; }
       validX=qx; validZ=qz;
     }
     if (Math.abs(validX-nx)>.001 || Math.abs(validZ-nz)>.001) corrected=true;
     const oldX=p.x,oldZ=p.z;
-    const oldYaw=p.yaw;p.x=validX;p.z=validZ;p.y=y;p.yaw=yaw;p.pitch=pitch;if(Math.hypot(p.x-oldX,p.z-oldZ)>.001||p.yaw!==oldYaw)p.mt=t;
+    const oldYaw=p.yaw,oldY=p.y;p.x=validX;p.z=validZ;p.y=y;p.yaw=yaw;p.pitch=pitch;if(Math.hypot(p.x-oldX,p.z-oldZ)>.001||Math.abs(p.y-oldY)>.001||p.yaw!==oldYaw)p.mt=t;
     p.moveBudget = Math.max(0, p.moveBudget - Math.hypot(p.x-oldX, p.z-oldZ));
     p.history.push({t,x:p.x,z:p.z,yaw}); while (p.history.length && t-p.history[0].t>PLAYER_MOVE.historySeconds*1000+NETWORK.interpolationMs) p.history.shift();
     if (corrected) this.correct(p);
@@ -219,7 +219,7 @@ class Room {
     const dx=x-p.x,dz=z-p.z,steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.08)),other=this.players[1-p.id];
     for(let i=1;i<=steps;i++){
       const qx=p.x+dx*i/steps,qz=p.z+dz*i/steps;
-      if(Math.hypot(qx,qz)>ARENA_RADIUS-PLAYER_RADIUS||OBSTACLES.some(o=>Math.hypot(qx-o.x,qz-o.z)<o.radius+PLAYER_RADIUS)||(other?.alive&&Math.hypot(qx-other.x,qz-other.z)<PLAYER_RADIUS*2))return false;
+      if(Math.hypot(qx,qz)>ARENA_RADIUS-PLAYER_RADIUS||OBSTACLES.some(o=>Math.hypot(qx-o.x,qz-o.z)<o.radius+PLAYER_RADIUS)||(other?.alive&&Math.hypot(qx-other.x,qz-other.z)<PLAYER_SEPARATION))return false;
     }
     return true;
   }
@@ -297,6 +297,7 @@ class Room {
     if(this.phase==='countdown'&&t>=this.startedAt){this.phase='fight';this.broadcast({type:'fight',endsAt:this.endsAt});}
     if(this.phase==='fight'){
       if(this.practice)this.runEasyBot(t);
+      this.separatePlayers(t);
       for(const p of this.players){if(!p.alive)continue;if(p.special&&t>=p.special.firesAt)this.fireSpecial(p,t);if(t-p.lastSpend>=STAMINA.delay*1000)p.stamina=Math.min(STAMINA.max,p.stamina+STAMINA.regen/(TICK_RATE));if(p.swing&&t>=p.swing.due+Math.min(p.swing.defenderWait,NETWORK.hitWaitCapMs)&&!p.swing.checked)this.resolveSwing(p);if(p.swing&&t>=p.swing.finish)p.swing=null;if(p.specialQueue&&!p.swing&&t>=p.specialQueue.nextAt){if(p.stunUntil<=t){const q=p.specialQueue;p.specialQueue=null;this.startSpecialSwing(p,t,q.config);}else p.specialQueue=null;}}for(const item of this.items)if(t>=item.landAt)item.landed=true;
       if(t>=this.lastDrop&&this.items.length<DROP_RULES.maxGround){this.spawnDrops();this.lastDrop=t+DROP_RULES.intervalMinSeconds*1000+Math.random()*(DROP_RULES.intervalMaxSeconds-DROP_RULES.intervalMinSeconds)*1000;}
       this.broadcast({type:'state',serverTime:t,phase:this.phase,remaining:Math.max(0,Math.ceil((this.endsAt-t)/1000)),players:this.publicPlayers(),items:this.items});
@@ -327,7 +328,7 @@ class Room {
     if(defender.hp<=0)this.finish(attacker.id,'K.O.');
   }
   sample(p,t){if(!p.history.length)return{x:p.x,z:p.z,yaw:p.yaw};let before=p.history[0],after=p.history[p.history.length-1];for(let i=1;i<p.history.length;i++){if(p.history[i].t>=t){before=p.history[i-1];after=p.history[i];break;}}if(after.t===before.t)return{x:before.x,z:before.z,yaw:before.yaw};const a=clamp((t-before.t)/(after.t-before.t),0,1);return{x:before.x+(after.x-before.x)*a,z:before.z+(after.z-before.z)*a,yaw:before.yaw+angleDelta(after.yaw,before.yaw)*a};}
-  push(p,dx,dz){const t=now(),oldX=p.x,oldZ=p.z,steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.075)),other=this.players[1-p.id];for(let i=steps;i>0;i--){const x=oldX+dx*i/steps,z=oldZ+dz*i/steps;if(Math.hypot(x,z)<=ARENA_RADIUS-PLAYER_RADIUS&&!OBSTACLES.some(o=>Math.hypot(x-o.x,z-o.z)<o.radius+PLAYER_RADIUS)&&(!other?.alive||Math.hypot(x-other.x,z-other.z)>=PLAYER_RADIUS*2)){p.x=x;p.z=z;break;}}p.history.push({t,x:p.x,z:p.z,yaw:p.yaw});while(p.history.length&&t-p.history[0].t>PLAYER_MOVE.historySeconds*1000+NETWORK.interpolationMs)p.history.shift();const appliedX=p.x-oldX,appliedZ=p.z-oldZ;if(Math.hypot(appliedX,appliedZ)>.001){p.corr++;safeSend(p.socket,{type:'push',dx:appliedX,dz:appliedZ,corr:p.corr});}}
+  push(p,dx,dz){const t=now(),oldX=p.x,oldZ=p.z,steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.075)),other=this.players[1-p.id];for(let i=steps;i>0;i--){const x=oldX+dx*i/steps,z=oldZ+dz*i/steps;if(Math.hypot(x,z)<=ARENA_RADIUS-PLAYER_RADIUS&&!OBSTACLES.some(o=>Math.hypot(x-o.x,z-o.z)<o.radius+PLAYER_RADIUS)&&(!other?.alive||Math.hypot(x-other.x,z-other.z)>=PLAYER_SEPARATION)){p.x=x;p.z=z;break;}}p.history.push({t,x:p.x,z:p.z,yaw:p.yaw});while(p.history.length&&t-p.history[0].t>PLAYER_MOVE.historySeconds*1000+NETWORK.interpolationMs)p.history.shift();const appliedX=p.x-oldX,appliedZ=p.z-oldZ;if(Math.hypot(appliedX,appliedZ)>.001){p.corr++;safeSend(p.socket,{type:'push',dx:appliedX,dz:appliedZ,corr:p.corr});}}
   canPickup(p,item){if(item.ownerLock&&item.dropper===p.id){if(dist(p,item)<=PICKUP_RADIUS)return false;item.ownerLock=false;}return true;}
   tryPickup(p){const item=this.items.filter(i=>i.landed&&this.canPickup(p,i)&&dist(p,i)<PICKUP_RADIUS).sort((a,b)=>dist(p,a)-dist(p,b))[0];if(!item)return;if(item.type==='potion'){p.hp=Math.min(MATCH_HP,p.hp+POTION.heal);p.attackBoostUntil=now()+POTION.durationSeconds*1000;}else if(['sword','spear'].includes(item.type)){if(p.weapon!=='fists')return;p.weapon=item.type;}else if(item.type==='shield'){if(p.shield)return;p.shield=true;}this.items=this.items.filter(i=>i!==item);this.broadcast({type:'event',event:'pickup',player:p.id,item:item.type});}
   pickup(id){const p=this.players[id];if(!p||this.phase!=='fight'||!p.alive)return;const item=this.items.filter(i=>i.landed&&this.canPickup(p,i)&&dist(p,i)<PICKUP_RADIUS).sort((a,b)=>dist(p,a)-dist(p,b))[0];if(item&&['sword','spear'].includes(item.type)&&p.weapon!=='fists'&&p.weapon!==item.type){this.swap(id);return;}this.tryPickup(p);}
@@ -335,7 +336,8 @@ class Room {
   chooseItem(){const elapsed=now()-this.startedAt;if(elapsed>MATCH_SECONDS*POTION.minMatchFraction*1000&&Math.random()<(elapsed>=MATCH_SECONDS*1000-DROP_RULES.lastPotionSeconds*1000?DROP_RULES.lastPotionChance:DROP_RULES.potionChance))return'potion';return DROP_RULES.weaponTypes[Math.floor(Math.random()*DROP_RULES.weaponTypes.length)];}
   randomSpot(mirrored=false){for(let tries=0;tries<60;tries++){const a=Math.random()*Math.PI*2,r=Math.sqrt(Math.random())*DROP_RULES.radius,x=Math.cos(a)*r,z=Math.sin(a)*r,points=mirrored?[{x,z},{x:-x,z:-z}]:[{x,z}];if(mirrored&&2*r<DROP_RULES.itemGap)continue;const valid=points.every(point=>!OBSTACLES.some(o=>Math.hypot(point.x-o.x,point.z-o.z)<o.radius+DROP_RULES.obstacleGap)&&!this.players.some(p=>p.alive&&Math.hypot(point.x-p.x,point.z-p.z)<DROP_RULES.playerGap)&&!this.items.some(i=>Math.hypot(point.x-i.x,point.z-i.z)<DROP_RULES.itemGap));if(valid)return{x,z};}return null;}
   finish(winner,reason){if(this.phase==='result'||this.phase==='closed')return;this.phase='result';this.result={winner,reason};this.broadcast({type:'result',result:this.result,players:this.publicPlayers(),rematch:[false,false]});}
-  publicPlayers(){const t=now();return this.players.map(p=>{const sent=p.lastPublicPosition,changed=sent&&(sent.x!==p.x||sent.z!==p.z||sent.yaw!==p.yaw);if(changed&&p.mt===p.lastSentMt)p.mt=t;p.lastPublicPosition={x:p.x,z:p.z,yaw:p.yaw};p.lastSentMt=p.mt;return{id:p.id,name:p.name,fighter:p.fighter,x:p.x,y:p.y,z:p.z,yaw:p.yaw,mt:p.mt,pitch:p.pitch,hp:p.hp,stamina:p.stamina,sp:p.sp,weapon:p.weapon,shield:p.shield,block:p.block,stun:p.stunUntil>t,locked:p.lockedUntil>t,special:p.special?{move:p.special.move,started:p.special.started,firesAt:p.special.firesAt}:null,swing:p.swing?{started:p.swing.started,due:p.swing.due,weapon:p.swing.weapon}:null,attackBoost:p.attackBoostUntil>t,ping:p.ping};});}
+  separatePlayers(t=now()){const [a,b]=this.players;if(!a?.alive||!b?.alive)return;let dx=b.x-a.x,dz=b.z-a.z,d=Math.hypot(dx,dz);if(d>=PLAYER_SEPARATION)return;if(d<1e-6){dx=0;dz=a.id===0?1:-1;d=1;}const overlap=PLAYER_SEPARATION-d,nx=dx/d,nz=dz/d,half=overlap/2,ax=a.x-nx*half,az=a.z-nz*half,bx=b.x+nx*half,bz=b.z+nz*half,clear=(x,z)=>Math.hypot(x,z)<=ARENA_RADIUS-PLAYER_RADIUS&&!OBSTACLES.some(o=>Math.hypot(x-o.x,z-o.z)<o.radius+PLAYER_RADIUS);if(!clear(ax,az)||!clear(bx,bz))return;for(const [p,x,z] of [[a,ax,az],[b,bx,bz]]){const px=x-p.x,pz=z-p.z;p.x=x;p.z=z;p.mt=t;p.history.push({t,x:p.x,z:p.z,yaw:p.yaw});while(p.history.length&&t-p.history[0].t>PLAYER_MOVE.historySeconds*1000+NETWORK.interpolationMs)p.history.shift();p.corr++;safeSend(p.socket,{type:'push',dx:px,dz:pz,corr:p.corr});}}
+  publicPlayers(){const t=now();return this.players.map(p=>{const sent=p.lastPublicPosition,changed=sent&&(sent.x!==p.x||sent.y!==p.y||sent.z!==p.z||sent.yaw!==p.yaw);if(changed&&p.mt===p.lastSentMt)p.mt=t;p.lastPublicPosition={x:p.x,y:p.y,z:p.z,yaw:p.yaw};p.lastSentMt=p.mt;return{id:p.id,name:p.name,fighter:p.fighter,x:p.x,y:p.y,z:p.z,yaw:p.yaw,mt:p.mt,pitch:p.pitch,hp:p.hp,stamina:p.stamina,sp:p.sp,weapon:p.weapon,shield:p.shield,block:p.block,stun:p.stunUntil>t,locked:p.lockedUntil>t,special:p.special?{move:p.special.move,started:p.special.started,firesAt:p.special.firesAt}:null,swing:p.swing?{started:p.swing.started,due:p.swing.due,weapon:p.swing.weapon}:null,dashUntil:p.dashUntil,attackBoost:p.attackBoostUntil>t,ping:p.ping};});}
   cleanup(){clearInterval(this.tick);this.phase='closed';this.manager.delete(this.code);}
 }
 

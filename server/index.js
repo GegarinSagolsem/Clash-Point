@@ -96,4 +96,4 @@ function cleanName(value) {
 function parseServers(raw = '') { return Object.fromEntries(String(raw).split(',').map(x => x.trim()).filter(Boolean).map(x => x.split('=').map(y => y.trim())).filter(x => x.length === 2)); }
 
 const port = Number(process.env.PORT) || 3000;
-server.listen(port, '0.0.0.0', () => console.log(`Area of Duel listening on http://localhost:${port}`));
+server.listen(port, '0.0.0.0', () => console.log(`Clash Point listening on http://localhost:${port}`));

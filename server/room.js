@@ -103,7 +103,7 @@ class Room {
       specialDamage:config.damage,specialReach:config.reach,specialReachBonus:config.reachBonus||0,specialArc:config.arc,specialStripHalfWidth:config.stripHalfWidth,specialStun:config.stunSeconds||0};
     if(this.matchStats?.[p.id])this.matchStats[p.id].swings++;
     p.nextAttack=p.swing.finish;
-    this.broadcast({type:'event',event:'swing',player:p.id,weapon:config.weapon,cut:p.swing.cut,direction:p.swing.direction,due:p.swing.due,started:t});
+    this.broadcast({type:'event',event:'swing',player:p.id,weapon:config.weapon,cut:p.swing.cut,direction:p.swing.direction,due:p.swing.due,started:t,finish:p.swing.finish});
     this.planPracticeDefense(p,p.swing);
   }
   fireSpecial(p,t) {
@@ -181,7 +181,7 @@ class Room {
     p.swing={ started:t,due,finish:t+w.duration*1000*speedFactor,weapon:p.weapon,cut:this.chooseAttackCut(p,p.weapon),direction:p.weapon==='sword'&&Math.random()<.5?'left':'right',parries:[],defenderWait,checked:false };
     p.nextAttack=t+w.duration*1000*speedFactor;
     if(this.matchStats?.[id])this.matchStats[id].swings++;
-    this.broadcast({type:'event',event:'swing',player:id,weapon:p.weapon,cut:p.swing.cut,direction:p.swing.direction,due,started:t});
+    this.broadcast({type:'event',event:'swing',player:id,weapon:p.weapon,cut:p.swing.cut,direction:p.swing.direction,due,started:t,finish:p.swing.finish});
     this.planPracticeDefense(p,p.swing);
   }
   block(id,held,msg={}) { const p=this.player(id); if(!p||this.phase!=='fight'||p.special||now()<p.stunUntil)return;const t=now(),actionAt=t-p.ping/2;if(Number.isFinite(msg.yaw))p.yaw=msg.yaw;if(held&&!p.block){p.block=true;p.blockAt=actionAt;p.blockOffAt=0;}else if(!held&&p.block){p.block=false;p.blockOffAt=actionAt;} }

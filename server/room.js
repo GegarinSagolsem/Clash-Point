@@ -312,21 +312,21 @@ class Room {
   resolveSwing(attacker) {
     const swing=attacker.swing;if(!swing||swing.checked)return;swing.checked=true;
     const defender=this.enemies(attacker).filter(candidate=>this.swingCanReach(attacker,candidate,swing)).sort((a,b)=>dist(attacker,a)-dist(attacker,b))[0];
-    if(defender)this.resolveSwingAgainst(attacker,defender,swing);
+    if(!defender||!this.resolveSwingAgainst(attacker,defender,swing))this.broadcast({type:'event',event:'swingMiss',player:attacker.id,weapon:swing.weapon,due:swing.due});
   }
   swingCanReach(attacker,defender,swing){if(!defender?.alive||this.phase!=='fight')return false;const target=this.sample(defender,swing.due-Math.min(NETWORK.maxHitRewindMs,attacker.ping/2+NETWORK.interpolationMs)),source=this.sample(attacker,swing.due),w=WEAPONS[swing.weapon],d=Math.hypot(target.x-source.x,target.z-source.z),bearing=Math.atan2(target.x-source.x,target.z-source.z),delta=angleDelta(bearing,source.yaw),reach=swing.specialReach??w.reach+(swing.specialReachBonus||0),arc=swing.specialArc??w.arc;if(swing.weapon==='spear'){const forward=(target.x-source.x)*Math.sin(source.yaw)+(target.z-source.z)*Math.cos(source.yaw),side=Math.abs((target.x-source.x)*Math.cos(source.yaw)-(target.z-source.z)*Math.sin(source.yaw));return forward>0&&forward<=reach+BODY_RADIUS&&side<=(swing.specialStripHalfWidth??w.stripHalfWidth);}return d-BODY_RADIUS<=reach&&Math.abs(delta)<=arc*Math.PI/180;}
   resolveSwingAgainst(attacker,defender,swing) {
-    if(!defender?.alive||this.phase!=='fight')return;
+    if(!defender?.alive||this.phase!=='fight')return false;
     const targetPos=this.sample(defender,swing.due-Math.min(NETWORK.maxHitRewindMs,attacker.ping/2+NETWORK.interpolationMs));
     const attackerAtHit=this.sample(attacker,swing.due), d=Math.hypot(targetPos.x-attackerAtHit.x,targetPos.z-attackerAtHit.z), w=WEAPONS[swing.weapon];
     const bearing=Math.atan2(targetPos.x-attackerAtHit.x,targetPos.z-attackerAtHit.z), delta=angleDelta(bearing,attackerAtHit.yaw);
     const reach=swing.specialReach??w.reach+(swing.specialReachBonus||0),arc=swing.specialArc??w.arc;
     if(swing.weapon==='spear'){
       const forward=(targetPos.x-attackerAtHit.x)*Math.sin(attackerAtHit.yaw)+(targetPos.z-attackerAtHit.z)*Math.cos(attackerAtHit.yaw),side=Math.abs((targetPos.x-attackerAtHit.x)*Math.cos(attackerAtHit.yaw)-(targetPos.z-attackerAtHit.z)*Math.sin(attackerAtHit.yaw));
-      if(forward<=0||forward>reach+BODY_RADIUS||side>(swing.specialStripHalfWidth??w.stripHalfWidth))return;
-    }else if(d-BODY_RADIUS>reach||Math.abs(delta)>arc*Math.PI/180)return;
+      if(forward<=0||forward>reach+BODY_RADIUS||side>(swing.specialStripHalfWidth??w.stripHalfWidth))return false;
+    }else if(d-BODY_RADIUS>reach||Math.abs(delta)>arc*Math.PI/180)return false;
     const parry=swing.parries.find(x=>x.at>=swing.due-PARRY_RULES.windowMs&&x.at<=swing.due&&Math.abs(angleDelta(Math.atan2(attackerAtHit.x-targetPos.x,attackerAtHit.z-targetPos.z),x.yaw))<=PARRY_RULES.facingAngle*Math.PI/180);
-    if(parry){if(this.matchStats?.[defender.id])this.matchStats[defender.id].parries++;if(defender.isBot&&defender.botLevel==='hard')defender.botParryPunish=true;const t=now();attacker.specialQueue=null;attacker.stunUntil=t+PARRY_RULES.staggerSeconds*1000;attacker.lockedUntil=t+PARRY_RULES.staggerSeconds*1000;const dx=attacker.x-defender.x,dz=attacker.z-defender.z,l=Math.hypot(dx,dz)||1;this.push(attacker,dx/l*PARRY_RULES.staggerPush,dz/l*PARRY_RULES.staggerPush);this.addSp(defender,SPECIAL.parryGain);defender.bonusUntil=t+PARRY_RULES.buffSeconds*1000;attacker.defZeroUntil=t+PARRY_RULES.buffSeconds*1000;this.broadcast({type:'event',event:'parry',player:defender.id,target:attacker.id});return;}
+    if(parry){if(this.matchStats?.[defender.id])this.matchStats[defender.id].parries++;if(defender.isBot&&defender.botLevel==='hard')defender.botParryPunish=true;const t=now();attacker.specialQueue=null;attacker.stunUntil=t+PARRY_RULES.staggerSeconds*1000;attacker.lockedUntil=t+PARRY_RULES.staggerSeconds*1000;const dx=attacker.x-defender.x,dz=attacker.z-defender.z,l=Math.hypot(dx,dz)||1;this.push(attacker,dx/l*PARRY_RULES.staggerPush,dz/l*PARRY_RULES.staggerPush);this.addSp(defender,SPECIAL.parryGain);defender.bonusUntil=t+PARRY_RULES.buffSeconds*1000;attacker.defZeroUntil=t+PARRY_RULES.buffSeconds*1000;this.broadcast({type:'event',event:'parry',player:defender.id,target:attacker.id});return true;}
     const defenderAtHit=this.sample(defender,swing.due), from=Math.atan2(attackerAtHit.x-defenderAtHit.x,attackerAtHit.z-defenderAtHit.z), incoming=Math.abs(angleDelta(from,defenderAtHit.yaw))<=BLOCK_RULES.frontAngle*Math.PI/180;
     let base=(swing.specialDamage??w.damage)*(attacker.bonusUntil>now()?1+PARRY_RULES.damageBonus:1);const def=defender.defZeroUntil>now()?0:(defender.shield?SHIELD_DEF:0);let damage=base*100/(100+def);
     let blocked=0;
@@ -336,6 +336,7 @@ class Room {
     if(damage>0){if(swing.specialStun)defender.stunUntil=now()+swing.specialStun*1000;const dx=defender.x-attacker.x,dz=defender.z-attacker.z,l=Math.hypot(dx,dz)||1;this.push(defender,dx/l*HIT_PUSH,dz/l*HIT_PUSH);}
     this.broadcast({type:'event',event:blocked?'block':'hit',player:attacker.id,target:defender.id,weapon:swing.weapon,cut:swing.cut,x:(attackerAtHit.x+targetPos.x)*.5,y:1.08,z:(attackerAtHit.z+targetPos.z)*.5,special:!!swing.specialDamage,stun:!!swing.specialStun,damage:Math.round(damage*10)/10,blocked:Math.round(blocked*10)/10,hp:defender.hp});
     if(defender.hp<=0)this.finish(attacker.id,'K.O.');
+    return true;
   }
   sample(p,t){if(!p.history.length)return{x:p.x,z:p.z,yaw:p.yaw};let before=p.history[0],after=p.history[p.history.length-1];for(let i=1;i<p.history.length;i++){if(p.history[i].t>=t){before=p.history[i-1];after=p.history[i];break;}}if(after.t===before.t)return{x:before.x,z:before.z,yaw:before.yaw};const a=clamp((t-before.t)/(after.t-before.t),0,1);return{x:before.x+(after.x-before.x)*a,z:before.z+(after.z-before.z)*a,yaw:before.yaw+angleDelta(after.yaw,before.yaw)*a};}
   push(p,dx,dz){const t=now(),oldX=p.x,oldZ=p.z,steps=Math.max(1,Math.ceil(Math.hypot(dx,dz)/.075));for(let i=steps;i>0;i--){const x=oldX+dx*i/steps,z=oldZ+dz*i/steps,other=this.players.find(o=>o.id!==p.id),blocked=other?.alive&&Math.hypot(x-other.x,z-other.z)<PLAYER_SEPARATION;if(Math.hypot(x,z)<=ARENA_RADIUS-PLAYER_RADIUS&&!OBSTACLES.some(o=>Math.hypot(x-o.x,z-o.z)<o.radius+PLAYER_RADIUS)&&!blocked){p.x=x;p.z=z;break;}}p.history.push({t,x:p.x,z:p.z,yaw:p.yaw});while(p.history.length&&t-p.history[0].t>PLAYER_MOVE.historySeconds*1000+NETWORK.interpolationMs)p.history.shift();const appliedX=p.x-oldX,appliedZ=p.z-oldZ;if(Math.hypot(appliedX,appliedZ)>.001){p.corr++;safeSend(p.socket,{type:'push',dx:appliedX,dz:appliedZ,corr:p.corr});}}

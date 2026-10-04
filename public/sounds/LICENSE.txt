@@ -1,6 +1,10 @@
 Sound effects: Kenney (www.kenney.nl), from the packs "RPG Audio" and "Impact Sounds", licensed Creative Commons Zero (CC0): http://creativecommons.org/publicdomain/zero/1.0/
 Renamed for this game; the originals are unchanged.
 
+Also: "RPG Sound Pack" and "Swishes Sound Pack" by artisticdude (opengameart.org/users/artisticdude), licensed Creative Commons Zero (CC0). Used for swoosh-*.wav, parry-shing-*.wav, parry-ring.wav and flesh-*.wav: converted to mono 16-bit WAV, trimmed and normalised.
+https://opengameart.org/content/rpg-sound-pack
+https://opengameart.org/content/swishes-sound-pack
+
 	
 
 	RPG Audio

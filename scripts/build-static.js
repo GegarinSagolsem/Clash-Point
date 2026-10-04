@@ -8,7 +8,7 @@ const parse = raw => Object.fromEntries(String(raw || '').split(',').map(x => x.
 await rm(out, { recursive: true, force: true });
 await mkdir(out, { recursive: true });
 for (const name of ['index.html', 'style.css', 'favicon.svg']) await cp(path.join(root, 'public', name), path.join(out, name));
-for (const name of ['js', 'models']) await cp(path.join(root, 'public', name), path.join(out, name), { recursive: true });
+for (const name of ['js', 'models', 'sounds']) await cp(path.join(root, 'public', name), path.join(out, name), { recursive: true });
 await cp(path.join(root, 'shared'), path.join(out, 'shared'), { recursive: true });
 await cp(path.join(root, 'node_modules', 'three'), path.join(out, 'vendor', 'three'), { recursive: true });
 await cp(path.join(root, 'public', 'vendor', 'qrcode'), path.join(out, 'vendor', 'qrcode'), { recursive: true });

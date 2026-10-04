@@ -349,11 +349,12 @@ class Room {
   finish(winner,reason){
     if(this.phase==='result'||this.phase==='closed'||this.phase==='between')return;
     if(reason==='Opponent left'){this.phase='result';this.result={winner,reason,scores:[...this.roundScores],stats:this.matchStats,rounds:[...(this.roundHistory||[])]};this.broadcast({type:'result',result:this.result,players:this.publicPlayers(),scores:this.roundScores,stats:this.matchStats,rounds:this.roundHistory||[],rematch:this.players.map(x=>x.rematch)});return;}
-    if(reason==='K.O.')this.broadcast({type:'event',event:'ko',winner,loser:winner===0?1:0});
     this.roundHistory??=[];this.roundHistory.push({round:this.round,winner,reason});
     if(winner===0||winner===1)this.roundScores[winner]++;
     const matchWinner=this.roundScores[0]===this.roundScores[1]?-1:(this.roundScores[0]>this.roundScores[1]?0:1);
-    if(Math.max(...this.roundScores)>=2||this.round>=3){this.phase='result';this.result={winner:matchWinner,reason,scores:[...this.roundScores],stats:this.matchStats,rounds:[...(this.roundHistory||[])]};this.broadcast({type:'result',result:this.result,players:this.publicPlayers(),scores:this.roundScores,stats:this.matchStats,rounds:this.roundHistory||[],rematch:this.players.map(x=>x.rematch)});return;}
+    const final=Math.max(...this.roundScores)>=2||this.round>=3;
+    if(reason==='K.O.')this.broadcast({type:'event',event:'ko',winner,loser:winner===0?1:0,final});
+    if(final){this.phase='result';this.result={winner:matchWinner,reason,scores:[...this.roundScores],stats:this.matchStats,rounds:[...(this.roundHistory||[])]};this.broadcast({type:'result',result:this.result,players:this.publicPlayers(),scores:this.roundScores,stats:this.matchStats,rounds:this.roundHistory||[],rematch:this.players.map(x=>x.rematch)});return;}
     this.round++;this.phase='between';this.betweenUntil=now()+3000;this.items=[];
     this.broadcast({type:'roundBreak',round:this.round,scores:[...this.roundScores],winner,reason,players:this.publicPlayers(),remaining:3});
   }

@@ -1,9 +1,11 @@
 Sound effects: Kenney (www.kenney.nl), from the packs "RPG Audio" and "Impact Sounds", licensed Creative Commons Zero (CC0): http://creativecommons.org/publicdomain/zero/1.0/
 Renamed for this game; the originals are unchanged.
 
-Also: "RPG Sound Pack" and "Swishes Sound Pack" by artisticdude (opengameart.org/users/artisticdude), licensed Creative Commons Zero (CC0). Used for swoosh-*.wav, parry-shing-*.wav, parry-ring.wav and flesh-*.wav: converted to mono 16-bit WAV, trimmed and normalised.
+Also: "RPG Sound Pack" and "Swishes Sound Pack" by artisticdude (opengameart.org/users/artisticdude), licensed Creative Commons Zero (CC0). Used for flesh-*.wav (converted to mono 16-bit WAV, trimmed and normalised) and as layers inside the sounds below.
 https://opengameart.org/content/rpg-sound-pack
 https://opengameart.org/content/swishes-sound-pack
+
+Made for Clash Point: deflect-*.wav, guard-*.wav, slash-*.wav, cut-*.wav, peril.wav, fight-start.wav, round-ko.wav, final-blow.wav, victory.wav and defeat.wav. They are synthesised (taiko drums, temple bells, steel blade rings, sparks, blade swishes) and layered with the CC0 sounds above (artisticdude's parry shing, parry ring and flesh, and Kenney's parry, block and heavy-hit sounds). Released under the same Creative Commons Zero (CC0) licence.
 
 	
 

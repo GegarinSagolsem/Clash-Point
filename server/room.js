@@ -96,30 +96,30 @@ class Room {
     this.broadcast({type:'event',event:'specialCharge',player:p.id,move,started:t,firesAt:p.special.firesAt});
     if(this.matchStats?.[p.id])this.matchStats[p.id].specials++;
   }
-  startSpecialSwing(p, t, config) {
+  startSpecialSwing(p, t, config, specialMove=config.specialMove||null) {
     const targets=this.enemies(p);if(!targets.length)return;
     const defenderWait=Math.min(NETWORK.hitWaitCapMs,Math.max(...targets.map(target=>target.ping/2+NETWORK.blockParryWaitMs)));
     p.swing={started:t,due:t+config.windup*1000,finish:t+config.duration*1000,weapon:config.weapon,cut:this.chooseAttackCut(p,config.weapon),direction:config.weapon==='sword'&&Math.random()<.5?'left':'right',parries:[],defenderWait,checked:false,
-      specialDamage:config.damage,specialReach:config.reach,specialReachBonus:config.reachBonus||0,specialArc:config.arc,specialStripHalfWidth:config.stripHalfWidth,specialStun:config.stunSeconds||0};
+      specialDamage:config.damage,specialReach:config.reach,specialReachBonus:config.reachBonus||0,specialArc:config.arc,specialStripHalfWidth:config.stripHalfWidth,specialStun:config.stunSeconds||0,specialMove};
     if(this.matchStats?.[p.id])this.matchStats[p.id].swings++;
     p.nextAttack=p.swing.finish;
-    this.broadcast({type:'event',event:'swing',player:p.id,weapon:config.weapon,cut:p.swing.cut,direction:p.swing.direction,due:p.swing.due,started:t,finish:p.swing.finish});
+    this.broadcast({type:'event',event:'swing',player:p.id,weapon:config.weapon,cut:p.swing.cut,direction:p.swing.direction,due:p.swing.due,started:t,finish:p.swing.finish,special:specialMove||undefined});
     this.planPracticeDefense(p,p.swing);
   }
   fireSpecial(p,t) {
     const charge=p.special;if(!charge)return;p.special=null;p.sp=0;
     if(charge.move==='doubleStrike'){
-      const strike=SPECIAL.swordStrike;this.startSpecialSwing(p,t,{...strike,weapon:'sword'});
-      p.specialQueue={nextAt:t+(strike.duration+strike.gap)*1000,config:{...strike,weapon:'sword'}};
+      const strike=SPECIAL.swordStrike;this.startSpecialSwing(p,t,{...strike,weapon:'sword'},'doubleStrike');
+      p.specialQueue={nextAt:t+(strike.duration+strike.gap)*1000,config:{...strike,weapon:'sword',specialMove:'doubleStrike'}};
     }else if(charge.move==='lunge'){
       const config=SPECIAL.spearLunge,fx=Math.sin(p.yaw),fz=Math.cos(p.yaw),oldX=p.x,oldZ=p.z,other=this.targetFor(p);let travel=config.distance;
       if(other?.alive){const ox=other.x-oldX,oz=other.z-oldZ,forward=ox*fx+oz*fz,lateral=Math.abs(ox*fz-oz*fx);if(forward>0&&lateral<=config.stripHalfWidth)travel=Math.min(config.distance,Math.max(0,forward-config.stopBeforeTarget));}
       const dx=fx*travel,dz=fz*travel,steps=Math.max(1,Math.ceil(travel/.075));
       for(let i=steps;i>0;i--){const x=oldX+dx*i/steps,z=oldZ+dz*i/steps,blocked=other?.alive&&Math.hypot(x-other.x,z-other.z)<PLAYER_SEPARATION;if(Math.hypot(x,z)<=ARENA_RADIUS-PLAYER_RADIUS&&!OBSTACLES.some(o=>Math.hypot(x-o.x,z-o.z)<o.radius+PLAYER_RADIUS)&&!blocked){p.x=x;p.z=z;break;}}
       p.moveBudget=0;p.history.push({t,x:p.x,z:p.z,yaw:p.yaw});this.correct(p);
-      this.startSpecialSwing(p,t,{...config,weapon:'spear',reach:config.reach,arc:config.arc});
+      this.startSpecialSwing(p,t,{...config,weapon:'spear',reach:config.reach,arc:config.arc},'lunge');
     }else if(charge.move==='shieldBash'){
-      this.startSpecialSwing(p,t,{...SPECIAL.shieldBash,weapon:'fists',reach:SPECIAL.shieldBash.reach,arc:WEAPONS.fists.arc});
+      this.startSpecialSwing(p,t,{...SPECIAL.shieldBash,weapon:'fists',reach:SPECIAL.shieldBash.reach,arc:WEAPONS.fists.arc},'shieldBash');
     }
   }
   start() {
@@ -334,7 +334,7 @@ class Room {
     if(blockWasActive&&incoming){if(this.matchStats?.[defender.id])this.matchStats[defender.id].blocks++;const ratio=defender.shield?BLOCK_RULES.shieldReduction:BLOCK_RULES.unshieldedReduction;blocked=damage*ratio;const cost=blocked*(defender.shield?BLOCK_RULES.shieldCost:BLOCK_RULES.unshieldedCost);if(defender.stamina<cost){defender.stamina=0;defender.stunUntil=now()+MOVEMENT.guardBreakStunSeconds*1000;defender.block=false;defender.blockOffAt=now();blocked=0;this.broadcast({type:'event',event:'guardBreak',player:defender.id});}else{defender.stamina-=cost;defender.lastSpend=now();this.addSp(defender,SPECIAL.blockedHitGain);}}
     damage=Math.max(0,damage-blocked);if(this.matchStats?.[attacker.id]){this.matchStats[attacker.id].hits++;this.matchStats[attacker.id].damage+=damage;}defender.hp=Math.max(0,defender.hp-damage);this.addSp(defender,damage*SPECIAL.damageTakenPerHp);
     if(damage>0){if(swing.specialStun)defender.stunUntil=now()+swing.specialStun*1000;const dx=defender.x-attacker.x,dz=defender.z-attacker.z,l=Math.hypot(dx,dz)||1;this.push(defender,dx/l*HIT_PUSH,dz/l*HIT_PUSH);}
-    this.broadcast({type:'event',event:blocked?'block':'hit',player:attacker.id,target:defender.id,weapon:swing.weapon,cut:swing.cut,x:(attackerAtHit.x+targetPos.x)*.5,y:1.08,z:(attackerAtHit.z+targetPos.z)*.5,special:!!swing.specialDamage,stun:!!swing.specialStun,damage:Math.round(damage*10)/10,blocked:Math.round(blocked*10)/10,hp:defender.hp});
+    this.broadcast({type:'event',event:blocked?'block':'hit',player:attacker.id,target:defender.id,weapon:swing.weapon,cut:swing.cut,x:(attackerAtHit.x+targetPos.x)*.5,y:1.08,z:(attackerAtHit.z+targetPos.z)*.5,special:!!swing.specialDamage,specialMove:swing.specialMove||null,stun:!!swing.specialStun,damage:Math.round(damage*10)/10,blocked:Math.round(blocked*10)/10,hp:defender.hp});
     if(defender.hp<=0)this.finish(attacker.id,'K.O.');
     return true;
   }

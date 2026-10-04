@@ -1,0 +1,8 @@
+Music in Clash Point
+
+fight.mp3 — "Taiko drums (seamless loop)" by jobro
+https://opengameart.org/content/taiko-drums-seamless-loop
+Licensed Creative Commons Attribution 3.0 (CC-BY 3.0): https://creativecommons.org/licenses/by/3.0/
+Changes: re-encoded as MP3 (96 kbps) and levelled.
+
+menu.mp3 — original theme made for Clash Point: a bowed pena (the one-string fiddle of Manipur) and a bamboo flute over a tanpura drone, with kartal and pung. Synthesised, no recordings used. Released under Creative Commons Zero (CC0).

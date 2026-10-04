@@ -5,7 +5,7 @@ Also: "RPG Sound Pack" and "Swishes Sound Pack" by artisticdude (opengameart.org
 https://opengameart.org/content/rpg-sound-pack
 https://opengameart.org/content/swishes-sound-pack
 
-Made for Clash Point: deflect-*.wav, guard-*.wav, slash-*.wav, cut-*.wav, peril.wav, fight-start.wav, round-ko.wav, final-blow.wav, victory.wav and defeat.wav. They are synthesised (taiko drums, temple bells, steel blade rings, sparks, blade swishes) and layered with the CC0 sounds above (artisticdude's parry shing, parry ring and flesh, and Kenney's parry, block and heavy-hit sounds). Released under the same Creative Commons Zero (CC0) licence.
+Made for Clash Point: deflect-*.wav, guard-*.wav, slash-*.wav, cut-*.wav, peril.wav, fight-start.wav, round-ko.wav, final-blow.wav, victory.wav, defeat.wav and sp-*.wav (sp-ready, sp-double-strike, sp-lunge, sp-shield-bash, sp-hit). They are synthesised (taiko drums, temple bells, steel blade rings, sparks, blade swishes) and layered with the CC0 sounds above (artisticdude's parry shing, parry ring and flesh, and Kenney's parry, block and heavy-hit sounds). Released under the same Creative Commons Zero (CC0) licence.
 
 	
 

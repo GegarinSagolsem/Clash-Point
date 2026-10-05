@@ -93,17 +93,22 @@ function makeClouds(scene) {
 }
 
 function makeAtmosphereParticles(scene, phone) {
+  const petalCanvas=document.createElement('canvas');petalCanvas.width=petalCanvas.height=64;const petalContext=petalCanvas.getContext('2d');
+  petalContext.save();petalContext.translate(32,32);petalContext.scale(.78,1);const petalShape=new Path2D();petalShape.moveTo(-27,0);petalShape.bezierCurveTo(-20,-4,-5,-14,13,-13);petalShape.quadraticCurveTo(23,-12,27,-6);petalShape.lineTo(20,0);petalShape.lineTo(27,6);petalShape.quadraticCurveTo(20,13,11,13);petalShape.bezierCurveTo(-6,14,-20,4,-27,0);petalShape.closePath();
+  const petalGradient=petalContext.createLinearGradient(-27,0,27,0);petalGradient.addColorStop(0,'#ff9fb8');petalGradient.addColorStop(.58,'#ffd3e0');petalGradient.addColorStop(1,'#fff5f8');petalContext.fillStyle=petalGradient;petalContext.fill(petalShape);
+  petalContext.save();petalContext.clip(petalShape);petalContext.globalAlpha=.34;petalContext.strokeStyle='#fffafd';petalContext.lineWidth=1.5;petalContext.beginPath();petalContext.moveTo(-23,0);petalContext.quadraticCurveTo(0,-1,22,0);petalContext.stroke();petalContext.restore();petalContext.restore();
+  const petalTexture=new THREE.CanvasTexture(petalCanvas);petalTexture.colorSpace=THREE.SRGBColorSpace;
   const make=(kind,count,geometry,material)=>{
     const mesh=new THREE.InstancedMesh(geometry,material,count),particles=[],dummy=new THREE.Object3D();mesh.frustumCulled=false;
     for(let i=0;i<count;i++){
-      const a=rng(i+1701)*TAU,r=1.5+rng(i+1733)*7.5,particle={x:Math.cos(a)*r,y:kind==='petal'?5.5+rng(i+1741):.2+rng(i+1753)*3.8,z:Math.sin(a)*r,vx:(rng(i+1777)-.5)*.2,vz:(rng(i+1789)-.5)*.2,rx:rng(i+1801)*TAU,ry:rng(i+1811)*TAU,rz:rng(i+1823)*TAU,spin:(rng(i+1831)-.5)*1.4,phase:rng(i+1847)*TAU};
+      const a=rng(i+1701)*TAU,r=1.5+rng(i+1733)*7.5,particle={x:Math.cos(a)*r,y:kind==='petal'?5.5+rng(i+1741):.2+rng(i+1753)*3.8,z:Math.sin(a)*r,vx:(rng(i+1777)-.5)*.2,vz:(rng(i+1789)-.5)*.2,rx:rng(i+1801)*TAU,ry:rng(i+1811)*TAU,rz:rng(i+1823)*TAU,spin:kind==='petal'?1.5+rng(i+1831)*2.5:(rng(i+1831)-.5)*1.4,swayPhase:rng(i+1837)*TAU,swaySpeed:kind==='petal'?TAU/(2+rng(i+1841)*2):0,swayWidth:kind==='petal'?.25+rng(i+1843)*.25:0,fallSpeed:kind==='petal'?.4+rng(i+1845)*.4:0,phase:rng(i+1847)*TAU};
       particles.push(particle);dummy.position.set(particle.x,particle.y,particle.z);dummy.rotation.set(particle.rx,particle.ry,particle.rz);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
-      if(kind==='petal'){const c=new THREE.Color(0xf4a7c0).lerp(new THREE.Color(0xfff0f4),rng(i+1859));mesh.setColorAt(i,c);}
+      if(kind==='petal'){const c=new THREE.Color(0xffffff).lerp(new THREE.Color(0xffe4ec),rng(i+1859));mesh.setColorAt(i,c);}
       else mesh.setColorAt(i,new THREE.Color(0xffb050));
     }
     mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;scene.add(mesh);mesh.userData.particles=particles;return mesh;
   };
-  const petals=make('petal',phone?60:160,new THREE.PlaneGeometry(.14,.10),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.88,side:THREE.DoubleSide,depthWrite:false}));
+  const petals=make('petal',phone?60:160,new THREE.PlaneGeometry(.12,.10),new THREE.MeshBasicMaterial({map:petalTexture,color:0xffffff,alphaTest:.4,transparent:true,opacity:.88,side:THREE.DoubleSide,depthWrite:false}));
   const emberCanvas=document.createElement('canvas');emberCanvas.width=emberCanvas.height=128;const emberContext=emberCanvas.getContext('2d'),emberGlow=emberContext.createRadialGradient(64,64,0,64,64,64);emberGlow.addColorStop(0,'rgba(255,245,210,1)');emberGlow.addColorStop(.18,'rgba(255,190,95,.94)');emberGlow.addColorStop(.5,'rgba(255,106,32,.46)');emberGlow.addColorStop(1,'rgba(255,80,20,0)');emberContext.fillStyle=emberGlow;emberContext.fillRect(0,0,128,128);const emberTexture=new THREE.CanvasTexture(emberCanvas);emberTexture.colorSpace=THREE.SRGBColorSpace;
   const embers=make('ember',phone?50:140,new THREE.PlaneGeometry(.09,.09),new THREE.MeshBasicMaterial({map:emberTexture,color:0xffffff,transparent:true,opacity:.86,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
   return {petals,embers,dummy:new THREE.Object3D(),tempColor:new THREE.Color(),emberColors:[new THREE.Color(0xffb050),new THREE.Color(0xff6a20)]};
@@ -137,11 +142,11 @@ export async function warmArenaAtmosphere(world, scene, renderer, camera) {
 
 function animateParticles(world, seconds, dt, camera) {
   if(!camera)return;
-  const {petals,embers,dummy,tempColor,emberColors}=world,cam=camera.position,wind=Math.sin(seconds*.17)*.08;
+  const {petals,embers,dummy,tempColor,emberColors}=world,cam=camera.position,wind=.3;
   const placeNearCamera=(particle,kind)=>{const a=Math.random()*TAU,r=1.5+Math.random()*7.5;particle.x=cam.x+Math.cos(a)*r;particle.z=cam.z+Math.sin(a)*r;particle.y=kind==='petal'?5.5+Math.random():.2+Math.random()*3.8;};
   if(!world.particlesInitialized){for(const p of petals.userData.particles)placeNearCamera(p,'petal');for(const p of embers.userData.particles)placeNearCamera(p,'ember');world.particlesInitialized=true;}
   const update=(mesh,kind)=>{const parts=mesh.userData.particles;for(let i=0;i<parts.length;i++){const p=parts[i],dx=p.x-cam.x,dz=p.z-cam.z;if(dx*dx+dz*dz>14*14)placeNearCamera(p,kind);
-      if(kind==='petal'){p.x+=(p.vx+wind)*dt;p.z+=(p.vz+Math.cos(seconds*.2+p.phase)*.035)*dt;p.y-=.28*dt;p.rx+=p.spin*dt;p.ry+=.65*dt;p.rz+=p.spin*.8*dt;if(p.y<=.3)placeNearCamera(p,kind);}
+      if(kind==='petal'){p.x+=(p.vx+wind+Math.sin(seconds*p.swaySpeed+p.swayPhase)*p.swayWidth/2)*dt;p.z+=(p.vz+Math.cos(seconds*.2+p.phase)*.035)*dt;p.y-=p.fallSpeed*dt;p.rx+=p.spin*dt;p.ry+=.65*dt;p.rz+=p.spin*.8*dt;if(p.y<=.3)placeNearCamera(p,kind);}
       else{p.x+=(p.vx+wind*.4)*dt;p.z+=(p.vz+Math.sin(seconds*.15+p.phase)*.025)*dt;p.y+=.58*dt;p.ry+=.4*dt;if(p.y>=4)placeNearCamera(p,kind);const flicker=.55+.45*(.5+.5*Math.sin(seconds*8+p.phase));tempColor.lerpColors(emberColors[1],emberColors[0],flicker);mesh.setColorAt(i,tempColor);}
       dummy.position.set(p.x,p.y,p.z);if(kind==='ember'){dummy.quaternion.copy(camera.quaternion);dummy.rotateZ(p.ry);dummy.scale.setScalar(.9+.2*(.5+.5*Math.sin(seconds*8+p.phase)));}else{dummy.rotation.set(p.rx,p.ry,p.rz);dummy.scale.setScalar(1);}dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
     }mesh.instanceMatrix.needsUpdate=true;if(kind==='ember'&&mesh.instanceColor)mesh.instanceColor.needsUpdate=true;};

@@ -42,7 +42,7 @@ wss.on('connection', socket => {
       return;
     }
     if (msg.type === 'practice') {
-      rooms.createPractice(socket, cleanName(msg.name), msg.botLevel, msg.fighter);
+      rooms.createPractice(socket, cleanName(msg.name), msg.botLevel, msg.fighter, msg.tutorial===true);
       return;
     }
     if (msg.type === 'create') {
@@ -74,6 +74,7 @@ wss.on('connection', socket => {
       case 'drop': room.drop(socket.player); break;
       case 'special': room.special(socket.player); break;
       case 'pickup': room.pickup(socket.player); break;
+      case 'tutorialSkip': room.skipTutorial(socket.player); break;
       case 'leave': room.disconnect(socket.player, true, socket); break;
     }
   });

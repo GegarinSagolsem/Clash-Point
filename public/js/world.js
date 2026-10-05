@@ -146,9 +146,9 @@ function animateParticles(world, seconds, dt, camera) {
   const placeNearCamera=(particle,kind)=>{const a=Math.random()*TAU,r=1.5+Math.random()*7.5;particle.x=cam.x+Math.cos(a)*r;particle.z=cam.z+Math.sin(a)*r;particle.y=kind==='petal'?5.5+Math.random():.2+Math.random()*3.8;};
   if(!world.particlesInitialized){for(const p of petals.userData.particles)placeNearCamera(p,'petal');for(const p of embers.userData.particles)placeNearCamera(p,'ember');world.particlesInitialized=true;}
   const update=(mesh,kind)=>{const parts=mesh.userData.particles;for(let i=0;i<parts.length;i++){const p=parts[i],dx=p.x-cam.x,dz=p.z-cam.z;if(dx*dx+dz*dz>14*14)placeNearCamera(p,kind);
-      if(kind==='petal'){p.x+=(p.vx+wind+Math.sin(seconds*p.swaySpeed+p.swayPhase)*p.swayWidth/2)*dt;p.z+=(p.vz+Math.cos(seconds*.2+p.phase)*.035)*dt;p.y-=p.fallSpeed*dt;p.rx+=p.spin*dt;p.ry+=.65*dt;p.rz+=p.spin*.8*dt;if(p.y<=.3)placeNearCamera(p,kind);}
+      if(kind==='petal'){p.x+=(p.vx+wind)*dt;p.z+=(p.vz+Math.cos(seconds*.2+p.phase)*.035)*dt;p.y-=p.fallSpeed*dt;p.rx+=p.spin*dt;p.ry+=.65*dt;p.rz+=p.spin*.8*dt;if(p.y<=.3)placeNearCamera(p,kind);}
       else{p.x+=(p.vx+wind*.4)*dt;p.z+=(p.vz+Math.sin(seconds*.15+p.phase)*.025)*dt;p.y+=.58*dt;p.ry+=.4*dt;if(p.y>=4)placeNearCamera(p,kind);const flicker=.55+.45*(.5+.5*Math.sin(seconds*8+p.phase));tempColor.lerpColors(emberColors[1],emberColors[0],flicker);mesh.setColorAt(i,tempColor);}
-      dummy.position.set(p.x,p.y,p.z);if(kind==='ember'){dummy.quaternion.copy(camera.quaternion);dummy.rotateZ(p.ry);dummy.scale.setScalar(.9+.2*(.5+.5*Math.sin(seconds*8+p.phase)));}else{dummy.rotation.set(p.rx,p.ry,p.rz);dummy.scale.setScalar(1);}dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
+      dummy.position.set(p.x,p.y,p.z+(kind==='petal'?Math.sin(seconds*p.swaySpeed+p.swayPhase)*p.swayWidth/2:0));if(kind==='ember'){dummy.quaternion.copy(camera.quaternion);dummy.rotateZ(p.ry);dummy.scale.setScalar(.9+.2*(.5+.5*Math.sin(seconds*8+p.phase)));}else{dummy.rotation.set(p.rx,p.ry,p.rz);dummy.scale.setScalar(1);}dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
     }mesh.instanceMatrix.needsUpdate=true;if(kind==='ember'&&mesh.instanceColor)mesh.instanceColor.needsUpdate=true;};
   update(petals,'petal');update(embers,'ember');
 }

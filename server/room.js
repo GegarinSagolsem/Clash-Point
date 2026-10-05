@@ -15,12 +15,12 @@ export class RoomManager {
     const room = new Room(code, this); this.rooms.set(code, room); room.add(socket, name, false, fighter);
     return { type:'joined', code, player:0, token:room.players[0].rejoinToken, players:room.lobbyPlayers() };
   }
-  createPractice(socket, name, botLevel='easy', fighter='Knight') {
+  createPractice(socket, name, botLevel='easy', fighter='Knight', tutorial=false) {
     let code; const prefix = this.regionPrefix || '';
     do { code = prefix + Array.from({ length: prefix ? 3 : 4 }, () => CODES[Math.floor(Math.random() * CODES.length)]).join(''); } while (this.rooms.has(code));
     const room = new Room(code, this); room.practice = true; this.rooms.set(code, room);
     botLevel=['easy','normal','hard'].includes(botLevel)?botLevel:'easy';
-    room.add(socket, name, false, fighter); room.add(null, `Bot · ${botLevel[0].toUpperCase()+botLevel.slice(1)}`, true, ['Knight','Barbarian','Rogue'].find(x=>x!==fighter)||'Barbarian');room.players[1].botLevel=botLevel; room.start(); return room;
+    room.add(socket, name, false, fighter); room.add(null, `Bot · ${botLevel[0].toUpperCase()+botLevel.slice(1)}`, true, ['Knight','Barbarian','Rogue'].find(x=>x!==fighter)||'Barbarian');room.players[1].botLevel=botLevel; room.tutorialRequested=!!tutorial; room.start(); return room;
   }
   join(socket, code, name, fighter='Knight') {
     const room = this.rooms.get(code);
@@ -47,7 +47,7 @@ class Room {
   constructor(code, manager) {
     this.code = code; this.manager = manager; this.players = []; this.phase = 'lobby'; this.items = []; this.practice = false;
     this.tick = setInterval(() => this.update(), 1000 / TICK_RATE);
-    this.lastDrop = 0; this.pending = [];
+    this.lastDrop = 0; this.pending = []; this.tutorialRequested=false; this.tutorialActive=false; this.tutorialStep=0; this.tutorialHits=0; this.tutorialBotAttacks=0; this.tutorialAdvanceAt=0;
   }
   add(socket, name, isBot = false, fighter = null) {
     const id = this.players.length;
@@ -71,6 +71,12 @@ class Room {
   setReady(id, ready) { const p=this.player(id); if(!p||this.phase!=='lobby')return; p.ready=ready; this.broadcast(this.lobbyState()); if(this.players.length===2&&this.players.every(x=>x.ready))this.start(); }
   setFighter(id, fighter){const p=this.player(id);if(!p||p.isBot||this.phase!=='lobby'||!['Knight','Barbarian','Rogue'].includes(fighter))return;p.fighter=fighter;this.broadcast(this.lobbyState());}
   setRematch(id) { const p = this.player(id); if (!p || this.phase !== 'result') return; p.rematch = true; if (this.practice) { this.start(); return; } const humans=this.players.filter(x=>!x.isBot);this.broadcast({ type: 'result', result: this.result, players: this.publicPlayers(), rematch: this.players.map(x => x.isBot||x.rematch) }); if (humans.every(x=>x.rematch)) this.start(); }
+  setTutorialStep(step, data={}) { this.tutorialStep=step; this.broadcast({type:'tutorial',step,...data}); }
+  completeTutorialStep() { if(!this.tutorialActive||this.tutorialCompleting||this.tutorialStep<1||this.tutorialStep>4)return;this.tutorialCompleting=true;this.tutorialAdvanceAt=now()+1000;this.broadcast({type:'tutorial',step:this.tutorialStep,complete:true}); }
+  advanceTutorial(t) { if(!this.tutorialActive||!this.tutorialAdvanceAt||t<this.tutorialAdvanceAt)return;this.tutorialAdvanceAt=0;this.tutorialCompleting=false;if(this.tutorialStep>=4){this.finishTutorial(t);return;}this.setTutorialStep(this.tutorialStep+1);this.resetTutorialBot(t);if(this.tutorialStep===4){const human=this.players.find(p=>!p.isBot);if(human)human.sp=SPECIAL.max;} }
+  resetTutorialBot(t) { const bot=this.players.find(p=>p.isBot);this.tutorialBotAttacks=0;if(bot){bot.botNextAttack=t+1800;bot.swing=null;bot.block=false;bot.blockAt=0;bot.blockOffAt=0;bot.botDefense=null;bot.weapon='sword';}this.tutorialHits=0; }
+  finishTutorial(t=now()) { if(!this.tutorialActive)return;this.tutorialActive=false;this.tutorialRequested=false;this.tutorialAdvanceAt=0;this.tutorialCompleting=false;this.tutorialStep=5;this.items=[];this.tutorialReadyPending=this.phase==='countdown';if(!this.tutorialReadyPending){this.endsAt=t+MATCH_SECONDS*1000;this.lastDrop=t+DROP_RULES.firstMinSeconds*1000+Math.random()*(DROP_RULES.firstMaxSeconds-DROP_RULES.firstMinSeconds)*1000;}for(const p of this.players){p.hp=MATCH_HP;p.alive=true;p.stamina=STAMINA.max;p.sp=0;p.lastSpend=t;p.stunUntil=0;p.lockedUntil=0;p.swing=null;p.special=null;p.specialQueue=null;p.block=false;p.blockAt=0;p.blockOffAt=0;p.defZeroUntil=0;p.bonusUntil=0;p.attackBoostUntil=0;p.botDefense=null;if(p.isBot){p.weapon='fists';const config=this.botConfig(p);Object.assign(p,{botNextThink:t,botNextAttack:t+config.attackDelayMinMs+Math.random()*(config.attackDelayMaxMs-config.attackDelayMinMs),botResting:false,botDefense:null,botBlockRelease:0,botLastTick:t,botSteerSide:0,botSteerUntil:0,botParryPunish:false,botDodgeUntil:0});}}this.matchStats=this.players.map(()=>({damage:0,hits:0,swings:0,parries:0,blocks:0,specials:0}));this.broadcast({type:'tutorial',step:5,ready:true,active:false}); }
+  skipTutorial(id) { const p=this.player(id);if(!p||p.isBot||!this.tutorialActive)return;this.tutorialCompleting=false;this.finishTutorial(now()); }
   notice(p, message) { safeSend(p.socket, { type:'notice', message }); }
   addSp(p, amount) { p.sp = clamp((p.sp || 0) + amount, 0, SPECIAL.max); }
   swap(id) {
@@ -82,7 +88,7 @@ class Room {
     this.broadcast({type:'event',event:'pickup',player:p.id,item:item.type});
   }
   drop(id) {
-    const p=this.player(id),t=now();if(!p||this.phase!=='fight'||!p.alive||p.swing||p.special||p.specialQueue||p.stunUntil>t||p.lockedUntil>t||this.items.length>=DROP_RULES.maxGround)return;
+    const p=this.player(id),t=now();if(!p||this.phase!=='fight'||!p.alive||this.tutorialActive||p.swing||p.special||p.specialQueue||p.stunUntil>t||p.lockedUntil>t||this.items.length>=DROP_RULES.maxGround)return;
     const type=p.weapon!=='fists'?p.weapon:p.shield?'shield':null;if(!type)return;
     if(type==='shield')p.shield=false;else p.weapon='fists';
     this.items.push({id:Math.random().toString(36).slice(2,9),type,x:p.x,z:p.z,landAt:t,landed:true,dropper:p.id,ownerLock:true});this.broadcast({type:'event',event:'drop',player:id,item:type});
@@ -123,13 +129,13 @@ class Room {
     }
   }
   start() {
-    this.round=1;this.roundScores=[0,0];this.roundHistory=[];this.matchStats=this.players.map(()=>({damage:0,hits:0,swings:0,parries:0,blocks:0,specials:0}));this.result=null;this.beginRound(true);
+    this.round=1;this.roundScores=[0,0];this.roundHistory=[];this.matchStats=this.players.map(()=>({damage:0,hits:0,swings:0,parries:0,blocks:0,specials:0}));this.result=null;this.tutorialActive=this.practice&&this.tutorialRequested;this.tutorialStep=this.tutorialActive?1:0;this.tutorialHits=0;this.tutorialBotAttacks=0;this.tutorialAdvanceAt=0;this.tutorialCompleting=false;this.beginRound(true);
   }
   beginRound(initial=false) {
     this.phase=initial?'countdown':'fight';this.items=[];this.pending=[];this.startedAt=now()+(initial?COUNTDOWN_SECONDS*1000:0);this.endsAt=this.startedAt+MATCH_SECONDS*1000;this.lastDrop=this.startedAt+DROP_RULES.firstMinSeconds*1000+Math.random()*(DROP_RULES.firstMaxSeconds-DROP_RULES.firstMinSeconds)*1000;
-    for(const p of this.players){const s=SPAWNS[p.id],t=now();Object.assign(p,{x:s.x,y:0,z:s.z,yaw:s.yaw,mt:t,pitch:0,hp:MATCH_HP,stamina:STAMINA.max,sp:0,lastSpend:0,lastMove:t,moveBudget:0,corr:0,ready:false,rematch:false,block:false,blockAt:0,blockOffAt:0,swing:null,special:null,specialQueue:null,nextAttack:0,nextParry:0,stunUntil:0,lockedUntil:0,lastDash:0,dashUntil:0,weapon:'fists',shield:false,defZeroUntil:0,bonusUntil:0,attackBoostUntil:0,alive:true,history:[]});p.history.push({t,x:p.x,z:p.z,yaw:p.yaw});}
+    for(const p of this.players){const s=SPAWNS[p.id],t=now();Object.assign(p,{x:s.x,y:0,z:s.z,yaw:s.yaw,mt:t,pitch:0,hp:MATCH_HP,stamina:STAMINA.max,sp:0,lastSpend:0,lastMove:t,moveBudget:0,corr:0,ready:false,rematch:false,block:false,blockAt:0,blockOffAt:0,swing:null,special:null,specialQueue:null,nextAttack:0,nextParry:0,stunUntil:0,lockedUntil:0,lastDash:0,dashUntil:0,weapon:this.tutorialActive?'sword':'fists',shield:false,defZeroUntil:0,bonusUntil:0,attackBoostUntil:0,alive:true,history:[]});p.history.push({t,x:p.x,z:p.z,yaw:p.yaw});}
     for(const p of this.players)if(p.isBot){const c=this.botConfig(p);Object.assign(p,{botNextThink:now(),botNextAttack:now(),botResting:false,botDefense:null,botBlockRelease:0,botLastTick:now(),botSteerSide:0,botSteerUntil:0,botReactionMs:c.reactionMinMs?c.reactionMinMs+Math.random()*(c.reactionMaxMs-c.reactionMinMs):c.reactionMs,botParryPunish:false,botDodgeUntil:0});}
-    if(initial)this.broadcast({type:'started',practice:this.practice,players:this.publicPlayers(),countdown:COUNTDOWN_SECONDS,round:this.round,scores:this.roundScores});
+    if(initial){this.broadcast({type:'started',practice:this.practice,players:this.publicPlayers(),countdown:COUNTDOWN_SECONDS,round:this.round,scores:this.roundScores});if(this.tutorialActive)this.setTutorialStep(1);}
     else this.broadcast({type:'fight',endsAt:this.endsAt,round:this.round,scores:this.roundScores,phase:'fight',remaining:MATCH_SECONDS,serverTime:now(),players:this.publicPlayers(),items:[]});
   }
   move(id, msg) {
@@ -177,8 +183,9 @@ class Room {
     const w=WEAPONS[p.weapon]; if(p.stamina<w.stamina) return;
     p.stamina-=w.stamina;p.lastSpend=t;
     const speedFactor=p.attackBoostUntil>t?1/(1+POTION.attackSpeedBonus):1;
-    const due=t+w.windup*1000*speedFactor, defenderWait=Math.min(NETWORK.hitWaitCapMs,Math.max(...targets.map(target=>target.ping/2+NETWORK.blockParryWaitMs)));
-    p.swing={ started:t,due,finish:t+w.duration*1000*speedFactor,weapon:p.weapon,cut:this.chooseAttackCut(p,p.weapon),direction:p.weapon==='sword'&&Math.random()<.5?'left':'right',parries:[],defenderWait,checked:false };
+    const tutorialBot=p.isBot&&this.tutorialActive&&(this.tutorialStep===1||this.tutorialStep===2),windup=tutorialBot?.9:w.windup;
+    const due=t+windup*1000*speedFactor, defenderWait=Math.min(NETWORK.hitWaitCapMs,Math.max(...targets.map(target=>target.ping/2+NETWORK.blockParryWaitMs))),finish=t+(tutorialBot?windup+(w.duration-w.windup):w.duration)*1000*speedFactor;
+    p.swing={ started:t,due,finish,weapon:p.weapon,cut:this.chooseAttackCut(p,p.weapon),direction:p.weapon==='sword'&&Math.random()<.5?'left':'right',parries:[],defenderWait,checked:false };
     p.nextAttack=t+w.duration*1000*speedFactor;
     if(this.matchStats?.[id])this.matchStats[id].swings++;
     this.broadcast({type:'event',event:'swing',player:id,weapon:p.weapon,cut:p.swing.cut,direction:p.swing.direction,due,started:t,finish:p.swing.finish});
@@ -200,6 +207,7 @@ class Room {
   }
   planPracticeDefense(attacker,swing) {
     if(!this.practice||attacker.isBot)return;
+    if(this.tutorialActive&&(this.tutorialStep===3||this.tutorialStep===4))return;
     const bot=this.players.find(p=>p.isBot);if(!bot?.alive)return;
     const weapon=WEAPONS[swing.weapon]||WEAPONS.fists;
     const reach=swing.specialReach??weapon.reach+(swing.specialReachBonus||0);
@@ -226,6 +234,7 @@ class Room {
   runEasyBot(t) {
     const bot=this.players.find(p=>p.isBot), human=this.players.find(p=>!p.isBot);
     if(!bot?.alive||!human?.alive)return;
+    if(this.tutorialActive){this.runTutorialBot(bot,human,t);return;}
     const dt=clamp((t-(bot.botLastTick||t))/1000,0,.15);bot.botLastTick=t;
     const config=this.botConfig(bot),seen=this.sample(human,t-(bot.botReactionMs||config.reactionMs));
     const dx=seen.x-bot.x,dz=seen.z-bot.z,distToSeen=Math.hypot(dx,dz),bearing=Math.atan2(dx,dz);
@@ -291,20 +300,28 @@ class Room {
       }
     }
   }
+  runTutorialBot(bot,human,t) {
+    const dx=human.x-bot.x,dz=human.z-bot.z,d=Math.hypot(dx,dz),yaw=Math.atan2(dx,dz),dt=clamp((t-(bot.botLastTick||t))/1000,0,.15);bot.botLastTick=t;
+    if(this.tutorialCompleting){this.move(bot.id,{x:bot.x,y:0,z:bot.z,yaw,pitch:0,corr:bot.corr});return;}
+    if(this.tutorialStep<=2){const target=2,step=Math.min(MOVEMENT.runSpeed*dt,Math.max(0,d-target));this.move(bot.id,{x:bot.x+(d?dx/d*step:0),y:0,z:bot.z+(d?dz/d*step:0),yaw,pitch:0,corr:bot.corr});
+      if(d<=2.65&&!bot.swing&&t>=(bot.botNextAttack||t)){const before=bot.swing;this.attack(bot.id,{yaw});if(!before&&bot.swing){bot.botNextAttack=t+2500;this.tutorialBotAttacks++;if(this.tutorialStep===2&&this.tutorialBotAttacks===3)this.broadcast({type:'tutorial',step:2,hint:'Click when the ring turns white'});}}
+    }else{const target=1.6,step=Math.min(MOVEMENT.runSpeed*dt,Math.max(0,d-target));this.move(bot.id,{x:bot.x+(d?dx/d*step:0),y:0,z:bot.z+(d?dz/d*step:0),yaw,pitch:0,corr:bot.corr});}
+  }
   update() {
     const t=now();
+    if(this.tutorialActive&&this.phase==='fight'){this.endsAt+=Math.max(0,t-(this.tutorialLastTick||t));this.tutorialLastTick=t;this.advanceTutorial(t);}
     for(const p of this.players){if(!p.connected&&p.rejoinUntil&&t>=p.rejoinUntil){p.rejoinUntil=0;const other=this.players[1-p.id];if(other?.connected)this.finish(other.id,'Opponent left');else this.cleanup();}}
     if(this.phase==='closed'||this.phase==='result')return;
     if(this.phase==='between'){
       if(t>=this.betweenUntil){this.beginRound(false);return;}
       this.broadcast({type:'state',phase:'between',round:this.round,scores:this.roundScores,remaining:Math.max(0,Math.ceil((this.betweenUntil-t)/1000)),players:this.publicPlayers(),items:[]});return;
     }
-    if(this.phase==='countdown'&&t>=this.startedAt){this.phase='fight';this.broadcast({type:'fight',endsAt:this.endsAt,round:this.round,scores:this.roundScores,phase:'fight',remaining:MATCH_SECONDS,serverTime:now(),players:this.publicPlayers(),items:[]});}
+    if(this.phase==='countdown'&&t>=this.startedAt){this.phase='fight';if(this.tutorialReadyPending){this.tutorialReadyPending=false;this.endsAt=t+MATCH_SECONDS*1000;this.lastDrop=t+DROP_RULES.firstMinSeconds*1000+Math.random()*(DROP_RULES.firstMaxSeconds-DROP_RULES.firstMinSeconds)*1000;}if(this.tutorialActive)this.tutorialLastTick=t;this.broadcast({type:'fight',endsAt:this.endsAt,round:this.round,scores:this.roundScores,phase:'fight',remaining:MATCH_SECONDS,serverTime:now(),players:this.publicPlayers(),items:[]});}
     if(this.phase==='fight'){
       if(this.practice)this.runEasyBot(t);
       this.separatePlayers(t);
       for(const p of this.players){if(!p.alive)continue;if(p.special&&t>=p.special.firesAt)this.fireSpecial(p,t);if(t-p.lastSpend>=STAMINA.delay*1000)p.stamina=Math.min(STAMINA.max,p.stamina+STAMINA.regen/(TICK_RATE));if(p.swing&&t>=p.swing.due+Math.min(p.swing.defenderWait,NETWORK.hitWaitCapMs)&&!p.swing.checked)this.resolveSwing(p);if(p.swing&&t>=p.swing.finish)p.swing=null;if(p.specialQueue&&!p.swing&&t>=p.specialQueue.nextAt){if(p.stunUntil<=t){const q=p.specialQueue;p.specialQueue=null;this.startSpecialSwing(p,t,q.config);}else p.specialQueue=null;}}for(const item of this.items)if(t>=item.landAt)item.landed=true;
-      if(t>=this.lastDrop&&this.items.length<DROP_RULES.maxGround){this.spawnDrops();this.lastDrop=t+DROP_RULES.intervalMinSeconds*1000+Math.random()*(DROP_RULES.intervalMaxSeconds-DROP_RULES.intervalMinSeconds)*1000;}
+      if(!this.tutorialActive&&t>=this.lastDrop&&this.items.length<DROP_RULES.maxGround){this.spawnDrops();this.lastDrop=t+DROP_RULES.intervalMinSeconds*1000+Math.random()*(DROP_RULES.intervalMaxSeconds-DROP_RULES.intervalMinSeconds)*1000;}
       this.broadcast({type:'state',serverTime:t,phase:this.phase,round:this.round,scores:this.roundScores,remaining:Math.max(0,Math.ceil((this.endsAt-t)/1000)),players:this.publicPlayers(),items:this.items});
       if(t>=this.endsAt){const a=this.players[0],b=this.players[1];this.finish(a.hp===b.hp?-1:(a.hp>b.hp?0:1),'Time');}
     } else if(this.phase==='countdown'){this.broadcast({type:'state',phase:this.phase,remaining:Math.max(0,Math.ceil((this.startedAt-t)/1000)),players:this.publicPlayers(),items:[]});}
@@ -326,7 +343,7 @@ class Room {
       if(forward<=0||forward>reach+BODY_RADIUS||side>(swing.specialStripHalfWidth??w.stripHalfWidth))return false;
     }else if(d-BODY_RADIUS>reach||Math.abs(delta)>arc*Math.PI/180)return false;
     const parry=swing.parries.find(x=>x.at>=swing.due-PARRY_RULES.windowMs&&x.at<=swing.due&&Math.abs(angleDelta(Math.atan2(attackerAtHit.x-targetPos.x,attackerAtHit.z-targetPos.z),x.yaw))<=PARRY_RULES.facingAngle*Math.PI/180);
-    if(parry){if(this.matchStats?.[defender.id])this.matchStats[defender.id].parries++;if(defender.isBot&&defender.botLevel==='hard')defender.botParryPunish=true;const t=now();attacker.specialQueue=null;attacker.stunUntil=t+PARRY_RULES.staggerSeconds*1000;attacker.lockedUntil=t+PARRY_RULES.staggerSeconds*1000;const dx=attacker.x-defender.x,dz=attacker.z-defender.z,l=Math.hypot(dx,dz)||1;this.push(attacker,dx/l*PARRY_RULES.staggerPush,dz/l*PARRY_RULES.staggerPush);this.addSp(defender,SPECIAL.parryGain);defender.bonusUntil=t+PARRY_RULES.buffSeconds*1000;attacker.defZeroUntil=t+PARRY_RULES.buffSeconds*1000;this.broadcast({type:'event',event:'parry',player:defender.id,target:attacker.id});return true;}
+    if(parry){if(this.matchStats?.[defender.id])this.matchStats[defender.id].parries++;if(defender.isBot&&defender.botLevel==='hard')defender.botParryPunish=true;const t=now();attacker.specialQueue=null;attacker.stunUntil=t+PARRY_RULES.staggerSeconds*1000;attacker.lockedUntil=t+PARRY_RULES.staggerSeconds*1000;const dx=attacker.x-defender.x,dz=attacker.z-defender.z,l=Math.hypot(dx,dz)||1;this.push(attacker,dx/l*PARRY_RULES.staggerPush,dz/l*PARRY_RULES.staggerPush);this.addSp(defender,SPECIAL.parryGain);defender.bonusUntil=t+PARRY_RULES.buffSeconds*1000;attacker.defZeroUntil=t+PARRY_RULES.buffSeconds*1000;this.broadcast({type:'event',event:'parry',player:defender.id,target:attacker.id});if(this.tutorialActive&&this.tutorialStep===2&&defender.id===0)this.completeTutorialStep();return true;}
     const defenderAtHit=this.sample(defender,swing.due), from=Math.atan2(attackerAtHit.x-defenderAtHit.x,attackerAtHit.z-defenderAtHit.z), incoming=Math.abs(angleDelta(from,defenderAtHit.yaw))<=BLOCK_RULES.frontAngle*Math.PI/180;
     let base=(swing.specialDamage??w.damage)*(attacker.bonusUntil>now()?1+PARRY_RULES.damageBonus:1);const def=defender.defZeroUntil>now()?0:(defender.shield?SHIELD_DEF:0);let damage=base*100/(100+def);
     let blocked=0;
@@ -334,8 +351,12 @@ class Room {
     if(blockWasActive&&incoming){if(this.matchStats?.[defender.id])this.matchStats[defender.id].blocks++;const ratio=defender.shield?BLOCK_RULES.shieldReduction:BLOCK_RULES.unshieldedReduction;blocked=damage*ratio;const cost=blocked*(defender.shield?BLOCK_RULES.shieldCost:BLOCK_RULES.unshieldedCost);if(defender.stamina<cost){defender.stamina=0;defender.stunUntil=now()+MOVEMENT.guardBreakStunSeconds*1000;defender.block=false;defender.blockOffAt=now();blocked=0;this.broadcast({type:'event',event:'guardBreak',player:defender.id});}else{defender.stamina-=cost;defender.lastSpend=now();this.addSp(defender,SPECIAL.blockedHitGain);}}
     damage=Math.max(0,damage-blocked);if(this.matchStats?.[attacker.id]){this.matchStats[attacker.id].hits++;this.matchStats[attacker.id].damage+=damage;}defender.hp=Math.max(0,defender.hp-damage);this.addSp(defender,damage*SPECIAL.damageTakenPerHp);
     if(damage>0){if(swing.specialStun)defender.stunUntil=now()+swing.specialStun*1000;const dx=defender.x-attacker.x,dz=defender.z-attacker.z,l=Math.hypot(dx,dz)||1;this.push(defender,dx/l*HIT_PUSH,dz/l*HIT_PUSH);}
+    if(this.tutorialActive&&this.players.some(p=>p.hp<30))for(const p of this.players)p.hp=MATCH_HP;
     this.broadcast({type:'event',event:blocked?'block':'hit',player:attacker.id,target:defender.id,weapon:swing.weapon,cut:swing.cut,x:(attackerAtHit.x+targetPos.x)*.5,y:1.08,z:(attackerAtHit.z+targetPos.z)*.5,special:!!swing.specialDamage,specialMove:swing.specialMove||null,stun:!!swing.specialStun,damage:Math.round(damage*10)/10,blocked:Math.round(blocked*10)/10,hp:defender.hp});
-    if(defender.hp<=0)this.finish(attacker.id,'K.O.');
+    if(this.tutorialActive&&attacker.isBot&&blocked&&!defender.isBot&&this.tutorialStep===1)this.completeTutorialStep();
+    if(this.tutorialActive&&!attacker.isBot&&!blocked&&defender.isBot&&this.tutorialStep===3&&!swing.specialDamage){this.tutorialHits++;if(this.tutorialHits>=2)this.completeTutorialStep();}
+    if(this.tutorialActive&&!attacker.isBot&&!blocked&&defender.isBot&&this.tutorialStep===4&&swing.specialDamage)this.completeTutorialStep();
+    if(defender.hp<=0&&!this.tutorialActive)this.finish(attacker.id,'K.O.');
     return true;
   }
   sample(p,t){if(!p.history.length)return{x:p.x,z:p.z,yaw:p.yaw};let before=p.history[0],after=p.history[p.history.length-1];for(let i=1;i<p.history.length;i++){if(p.history[i].t>=t){before=p.history[i-1];after=p.history[i];break;}}if(after.t===before.t)return{x:before.x,z:before.z,yaw:before.yaw};const a=clamp((t-before.t)/(after.t-before.t),0,1);return{x:before.x+(after.x-before.x)*a,z:before.z+(after.z-before.z)*a,yaw:before.yaw+angleDelta(after.yaw,before.yaw)*a};}

@@ -29,3 +29,31 @@
 @media(max-width:600px){#result.screen.active{padding:8px}.result-card{padding:14px 16px;border-radius:18px}.result-card h1{font-size:2.6rem}.result-scoreline{margin:4px 0;font-size:1.8rem}.round-chips{margin:5px 0 7px}.round-chip{padding:4px 6px;font-size:.61rem}.stat-compare{min-height:24px;grid-template-columns:28px minmax(45px,1fr) 66px 28px;font-size:.64rem}.stat-compare b{font-size:.6rem}.result-card #matchStatsTable{margin:3px auto 4px}.result-card button{min-height:52px;margin-top:5px}.result-card #rematchStatus{margin:3px 0;font-size:.72rem}}
 
 #parryArrow{display:grid;place-items:center;width:100%;height:100%;font-size:2rem;line-height:1;font-weight:1000;text-shadow:0 1px 5px #000}
+
+/* Round 23: viewport-fit Home and visible special-move effects */
+html,body{width:100%;height:100%;min-height:0;overflow:hidden}
+.screen{height:100%;min-height:0}
+#home.screen{padding-top:clamp(8px,2vh,20px);padding-bottom:clamp(8px,2vh,20px)}
+#home .home-card{max-height:100svh;overflow:auto;scrollbar-width:none;padding:clamp(12px,2.2vh,24px) clamp(16px,3vw,30px)}
+#home .home-card::-webkit-scrollbar{display:none}
+#home .brand-logo{font-size:clamp(2.35rem,8vh,3.9rem)}
+#home .home-card>label{margin:clamp(8px,2.2vh,24px) 0 clamp(4px,1vh,8px)}
+#home .home-card p{margin-block:clamp(4px,1.2vh,12px)}
+#home .fighter-picker{margin-block:clamp(6px,1.6vh,12px);gap:clamp(4px,1vh,8px)}
+#home .fighter-card img{height:clamp(46px,9vh,72px)}
+#home button{min-height:clamp(40px,7vh,48px);padding-block:clamp(7px,1.5vh,11px)}
+#home .primary,#home .secondary-action,#home .quiet{margin-top:clamp(4px,1.1vh,12px)}
+#home .join-row{margin-top:clamp(4px,1vh,12px)}
+#home input{height:clamp(40px,7vh,48px)}
+#specialVignette{position:fixed;z-index:1;inset:0;pointer-events:none;opacity:0;transition:opacity .12s ease;background:radial-gradient(ellipse at center,transparent 34%,color-mix(in srgb,var(--special-glow,#ffc83d) 0%,transparent) 57%,color-mix(in srgb,var(--special-glow,#ffc83d) 48%,transparent) 100%)}
+#specialVignette.active{opacity:1}
+#specialSpeedlines{position:fixed;z-index:1;inset:0;pointer-events:none;opacity:0;transition:opacity .26s ease;background:repeating-conic-gradient(from 0deg at 50% 50%,#e8fbff00 0deg 3.2deg,#e8fbff9c 3.25deg 3.55deg,#e8fbff00 3.6deg 8deg);-webkit-mask-image:radial-gradient(ellipse at center,transparent 0 28%,#000 75%);mask-image:radial-gradient(ellipse at center,transparent 0 28%,#000 75%)}
+#specialSpeedlines.active{opacity:.72}
+#selfSp.ready{background:linear-gradient(90deg,#f59e0b,#fff0a6,#fbbf24);box-shadow:0 0 7px #facc15,0 0 15px #f59e0b99;animation:sp-ready-pulse .8s ease-in-out infinite alternate}
+@keyframes sp-ready-pulse{from{filter:brightness(.9);box-shadow:0 0 5px #facc15}to{filter:brightness(1.3);box-shadow:0 0 12px #facc15,0 0 22px #f59e0b}}
+#specialHint{line-height:1.2;min-height:1.2em;margin-top:3px}
+#spReadyNotice{display:block;height:1.1em;overflow:visible;line-height:1.1;margin-top:2px;font-size:.62rem;font-weight:1000;letter-spacing:.08em;color:#fcd34d;text-shadow:0 0 8px #f59e0b;opacity:0;white-space:nowrap;pointer-events:none}
+#spReadyNotice.flash{animation:sp-ready-notice 1.3s ease-out both}
+@keyframes sp-ready-notice{0%{opacity:0;transform:translateY(4px) scale(.8)}12%,70%{opacity:1;transform:translateY(0) scale(1)}100%{opacity:0;transform:translateY(-4px) scale(.96)}}
+@media(max-height:700px){#home .brand-logo{font-size:clamp(2.2rem,6.2vh,2.8rem)}#home .home-card>label{margin-block:4px}#home .home-card p{margin-block:4px}#home .fighter-card img{height:clamp(40px,7.2vh,52px)}}
+@media(max-width:600px){#home .home-card{width:min(440px,92vw)}}

@@ -1,4 +1,4 @@
-const defaults={sensitivity:1,fov:72,volume:1,musicVolume:.35,muted:false};
+const defaults={sensitivity:1,fov:72,volume:1,musicVolume:.35,muted:false,timeOfDay:'day'};
 let saved={};
 try{saved=JSON.parse(localStorage.getItem('clash-point-settings')||'{}')||{};}catch{}
 export const preferences={...defaults,...saved};

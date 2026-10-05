@@ -75,21 +75,76 @@ function instanceMesh(geometry, material, data, castShadow = false) {
 
 function makeSky(scene) {
   const geometry = new THREE.SphereGeometry(240, 48, 24);
-  const material = new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false, fog:false,
+  const material = new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false, fog:false,uniforms:{uHorizon:{value:new THREE.Vector3(.863,.827,.741)},uMid:{value:new THREE.Vector3(.612,.761,.886)},uZenith:{value:new THREE.Vector3(.247,.471,.753)}},
     vertexShader:'varying float h; void main(){h=normalize(position).y;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-    fragmentShader:'varying float h; void main(){vec3 horizon=vec3(0.863,0.827,0.741);vec3 mid=vec3(0.612,0.761,0.886);float k=smoothstep(-0.08,0.38,h);vec3 c=mix(horizon,mid,k);c=mix(c,vec3(0.247,0.471,0.753),smoothstep(0.38,0.88,h));gl_FragColor=vec4(c,1.0);}' });
+    fragmentShader:'varying float h;uniform vec3 uHorizon;uniform vec3 uMid;uniform vec3 uZenith;void main(){float k=smoothstep(-0.08,0.38,h);vec3 c=mix(uHorizon,uMid,k);c=mix(c,uZenith,smoothstep(0.38,0.88,h));gl_FragColor=vec4(c,1.0);}' });
   const sky = new THREE.Mesh(geometry, material); scene.add(sky);
   const canvas=document.createElement('canvas');canvas.width=canvas.height=512;const ctx=canvas.getContext('2d'),g=ctx.createRadialGradient(256,256,4,256,256,250);g.addColorStop(0,'rgba(255,244,211,0.95)');g.addColorStop(.18,'rgba(255,222,169,0.40)');g.addColorStop(1,'rgba(255,220,170,0)');ctx.fillStyle=g;ctx.fillRect(0,0,512,512);
-  const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(canvas),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));halo.position.set(-90,115,82);halo.scale.set(62,62,1);scene.add(halo);
+  const halo=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(canvas),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));halo.position.set(-90,115,82);halo.scale.set(62,62,1);scene.add(halo);sky.userData.halo=halo;
   return sky;
 }
 
 function makeClouds(scene) {
   const geometry = new THREE.SphereGeometry(205, 36, 18, 0, TAU, 0, Math.PI * .43);
-  const material = new THREE.ShaderMaterial({ side:THREE.BackSide, transparent:true, depthWrite:false, uniforms:{time:{value:0}},
+  const material = new THREE.ShaderMaterial({ side:THREE.BackSide, transparent:true, depthWrite:false, uniforms:{time:{value:0},uTint:{value:new THREE.Vector3(.96,.92,.82)}},
     vertexShader:'varying vec3 v; void main(){v=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
-    fragmentShader:'varying vec3 v;uniform float time;void main(){float n=sin(v.x*17.0+time*.015)*sin(v.z*19.0-time*.012)+sin(v.x*39.0+v.z*27.0+time*.01)*.25;float a=smoothstep(.48,.8,n)*.26;gl_FragColor=vec4(0.96,0.92,0.82,a);}' });
+    fragmentShader:'varying vec3 v;uniform float time;uniform vec3 uTint;void main(){float n=sin(v.x*17.0+time*.015)*sin(v.z*19.0-time*.012)+sin(v.x*39.0+v.z*27.0+time*.01)*.25;float a=smoothstep(.48,.8,n)*.26;gl_FragColor=vec4(uTint,a);}' });
   const mesh=new THREE.Mesh(geometry,material);scene.add(mesh);return mesh;
+}
+
+function makeAtmosphereParticles(scene, phone) {
+  const make=(kind,count,geometry,material)=>{
+    const mesh=new THREE.InstancedMesh(geometry,material,count),particles=[],dummy=new THREE.Object3D();mesh.frustumCulled=false;
+    for(let i=0;i<count;i++){
+      const a=rng(i+1701)*TAU,r=2+rng(i+1733)*10.5,particle={x:Math.cos(a)*r,y:kind==='petal'?2+rng(i+1741)*12:.2+rng(i+1753)*8,z:Math.sin(a)*r,vx:(rng(i+1777)-.5)*.2,vz:(rng(i+1789)-.5)*.2,rx:rng(i+1801)*TAU,ry:rng(i+1811)*TAU,rz:rng(i+1823)*TAU,spin:(rng(i+1831)-.5)*1.4,phase:rng(i+1847)*TAU};
+      particles.push(particle);dummy.position.set(particle.x,particle.y,particle.z);dummy.rotation.set(particle.rx,particle.ry,particle.rz);dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
+      if(kind==='petal'){const c=new THREE.Color(0xf4a7c0).lerp(new THREE.Color(0xfff0f4),rng(i+1859));mesh.setColorAt(i,c);}
+      else mesh.setColorAt(i,new THREE.Color(0xffb050));
+    }
+    mesh.instanceMatrix.needsUpdate=true;if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;scene.add(mesh);mesh.userData.particles=particles;return mesh;
+  };
+  const petals=make('petal',phone?50:120,new THREE.PlaneGeometry(.06,.04),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.88,side:THREE.DoubleSide,depthWrite:false}));
+  const embers=make('ember',phone?40:100,new THREE.SphereGeometry(.025,5,4),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:.86,blending:THREE.AdditiveBlending,depthWrite:false}));
+  return {petals,embers,dummy:new THREE.Object3D(),tempColor:new THREE.Color(),emberColors:[new THREE.Color(0xffb050),new THREE.Color(0xff6a20)]};
+}
+
+const atmospherePalette={
+  day:{horizon:new THREE.Vector3(.863,.827,.741),mid:new THREE.Vector3(.612,.761,.886),zenith:new THREE.Vector3(.247,.471,.753),fog:new THREE.Color(0xdcd3bd),fogNear:45,fogFar:200,hemiSky:new THREE.Color(0xcfe0ff),hemiGround:new THREE.Color(0x7a6038),hemiIntensity:1.7,sunColor:new THREE.Color(0xffe2b8),sunIntensity:2.8,sunPos:new THREE.Vector3(-90,156,86),haloPos:new THREE.Vector3(-90,115,82),haloScale:62,haloColor:new THREE.Color(0xffffff),cloudTint:new THREE.Vector3(.96,.92,.82),exposure:1.1},
+  evening:{horizon:new THREE.Vector3(.98,.62,.38),mid:new THREE.Vector3(.74,.47,.58),zenith:new THREE.Vector3(.18,.17,.38),fog:new THREE.Color(0xc28a70),fogNear:35,fogFar:170,hemiSky:new THREE.Color(0xffb38a),hemiGround:new THREE.Color(0x4a3a40),hemiIntensity:1.15,sunColor:new THREE.Color(0xffa060),sunIntensity:2.2,sunPos:new THREE.Vector3(-140,40,60),haloPos:new THREE.Vector3(-150,48,64),haloScale:90,haloColor:new THREE.Color(0xff963f),cloudTint:new THREE.Vector3(1,.70,.68),exposure:1}
+};
+
+function applyAtmosphere(world, blend=world.evening) {
+  const q=THREE.MathUtils.clamp(blend,0,1),day=atmospherePalette.day,eve=atmospherePalette.evening,uniforms=world.sky.material.uniforms;
+  uniforms.uHorizon.value.lerpVectors(day.horizon,eve.horizon,q);uniforms.uMid.value.lerpVectors(day.mid,eve.mid,q);uniforms.uZenith.value.lerpVectors(day.zenith,eve.zenith,q);
+  world.scene.background.lerpColors(day.fog,eve.fog,q);world.scene.fog.color.lerpColors(day.fog,eve.fog,q);world.scene.fog.near=THREE.MathUtils.lerp(day.fogNear,eve.fogNear,q);world.scene.fog.far=THREE.MathUtils.lerp(day.fogFar,eve.fogFar,q);
+  world.hemi.color.lerpColors(day.hemiSky,eve.hemiSky,q);world.hemi.groundColor.lerpColors(day.hemiGround,eve.hemiGround,q);world.hemi.intensity=THREE.MathUtils.lerp(day.hemiIntensity,eve.hemiIntensity,q);
+  world.sun.color.lerpColors(day.sunColor,eve.sunColor,q);world.sun.intensity=THREE.MathUtils.lerp(day.sunIntensity,eve.sunIntensity,q);world.sun.position.lerpVectors(day.sunPos,eve.sunPos,q);
+  const halo=world.sky.userData.halo;halo.position.lerpVectors(day.haloPos,eve.haloPos,q);const haloScale=THREE.MathUtils.lerp(day.haloScale,eve.haloScale,q);halo.scale.set(haloScale,haloScale,1);halo.material.color.lerpColors(day.haloColor,eve.haloColor,q);
+  world.clouds.material.uniforms.uTint.value.lerpVectors(day.cloudTint,eve.cloudTint,q);world.renderer.toneMappingExposure=THREE.MathUtils.lerp(day.exposure,eve.exposure,q);
+  if(world.pollen){world.pollen.material.opacity=.42*(1-q);world.pollen.visible=q<1;}world.petals.material.opacity=.88*(1-q);world.embers.material.opacity=.86*q;world.petals.visible=q<1;world.embers.visible=q>0;
+  world.evening=q;
+}
+
+export function setArenaTimeOfDay(world, timeOfDay) { if(world)world.targetEvening=timeOfDay==='evening'?1:0; }
+
+export async function warmArenaAtmosphere(world, scene, renderer, camera) {
+  if(!world?.petals||!world?.embers)return;
+  world.petals.visible=true;world.embers.visible=true;
+  try{await renderer.compileAsync(scene,camera);renderer.render(scene,camera);}
+  finally{applyAtmosphere(world,world.evening);}
+}
+
+function animateParticles(world, seconds, dt, camera) {
+  if(!camera)return;
+  const {petals,embers,dummy,tempColor,emberColors}=world,cam=camera.position,wind=Math.sin(seconds*.17)*.08;
+  const placeNearCamera=(particle,kind)=>{const a=Math.random()*TAU,r=2+Math.random()*10.5;particle.x=cam.x+Math.cos(a)*r;particle.z=cam.z+Math.sin(a)*r;particle.y=kind==='petal'?cam.y+5+Math.random()*7:Math.max(.15,cam.y-4)+Math.random()*3;};
+  if(!world.particlesInitialized){for(const p of petals.userData.particles)placeNearCamera(p,'petal');for(const p of embers.userData.particles)placeNearCamera(p,'ember');world.particlesInitialized=true;}
+  const update=(mesh,kind)=>{const parts=mesh.userData.particles;for(let i=0;i<parts.length;i++){const p=parts[i],dx=p.x-cam.x,dz=p.z-cam.z;if(dx*dx+dz*dz>14*14)placeNearCamera(p,kind);
+      if(kind==='petal'){p.x+=(p.vx+wind)*dt;p.z+=(p.vz+Math.cos(seconds*.2+p.phase)*.035)*dt;p.y-=.28*dt;p.rx+=p.spin*dt;p.ry+=.65*dt;p.rz+=p.spin*.8*dt;if(p.y<=.05)placeNearCamera(p,kind);}
+      else{p.x+=(p.vx+wind*.4)*dt;p.z+=(p.vz+Math.sin(seconds*.15+p.phase)*.025)*dt;p.y+=.58*dt;p.ry+=.4*dt;if(p.y>cam.y+8)placeNearCamera(p,kind);const flicker=.55+.45*(.5+.5*Math.sin(seconds*8+p.phase));tempColor.lerpColors(emberColors[1],emberColors[0],flicker);mesh.setColorAt(i,tempColor);}
+      dummy.position.set(p.x,p.y,p.z);dummy.rotation.set(p.rx,p.ry,p.rz);dummy.scale.setScalar(kind==='petal'?1:.55+.6*(.5+.5*Math.sin(seconds*8+p.phase)));dummy.updateMatrix();mesh.setMatrixAt(i,dummy.matrix);
+    }mesh.instanceMatrix.needsUpdate=true;if(kind==='ember'&&mesh.instanceColor)mesh.instanceColor.needsUpdate=true;};
+  update(petals,'petal');update(embers,'ember');
 }
 
 function addTrees(scene) {
@@ -167,21 +222,24 @@ function addMountains(scene) {
   const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(p,3));geo.setAttribute('color',new THREE.Float32BufferAttribute(c,3));geo.setIndex(idx);geo.computeVertexNormals();scene.add(new THREE.Mesh(geo,new THREE.MeshStandardMaterial({vertexColors:true,flatShading:true,roughness:1,side:THREE.DoubleSide})));
 }
 
-export function createArena(scene, renderer, {phone=mobile()}={}) {
+export function createArena(scene, renderer, {phone=mobile(),timeOfDay='day'}={}) {
   renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;renderer.outputColorSpace=THREE.SRGBColorSpace;
   scene.background=new THREE.Color(0xdcd3bd);scene.fog=new THREE.Fog(0xdcd3bd,45,200);
-  const sky=makeSky(scene);scene.add(new THREE.HemisphereLight(0xcfe0ff,0x7a6038,1.7));
+  const sky=makeSky(scene),hemi=new THREE.HemisphereLight(0xcfe0ff,0x7a6038,1.7);scene.add(hemi);
   const sun=new THREE.DirectionalLight(0xffe2b8,2.8);sun.position.set(-90,156,86);sun.castShadow=true;sun.shadow.mapSize.set(phone?512:2048,phone?512:2048);sun.shadow.camera.left=-27;sun.shadow.camera.right=27;sun.shadow.camera.top=27;sun.shadow.camera.bottom=-27;sun.shadow.camera.near=1;sun.shadow.camera.far=280;sun.shadow.bias=-.00015;scene.add(sun);scene.add(sun.target);sun.target.position.set(0,0,0);
-  scene.add(makeGround());scene.add(makeHills());const props=addWallAndProps(scene),vegetation=addVegetation(scene);addTrees(scene);addMountains(scene);const clouds=makeClouds(scene);
-  return {sky,clouds,sun,renderer,phone,banners:props.banners,grassMaterial:vegetation.grassMaterial,pollen:vegetation.pollen};
+  scene.add(makeGround());scene.add(makeHills());const props=addWallAndProps(scene),vegetation=addVegetation(scene);addTrees(scene);addMountains(scene);const clouds=makeClouds(scene),particles=makeAtmosphereParticles(scene,phone);
+  const world={scene,sky,clouds,sun,hemi,renderer,phone,banners:props.banners,grassMaterial:vegetation.grassMaterial,pollen:vegetation.pollen,...particles,targetEvening:timeOfDay==='evening'?1:0,evening:timeOfDay==='evening'?1:0,lastAtmosphereTime:0};applyAtmosphere(world,world.evening);return world;
 }
 
 export function animateArena(world, t, camera=null) {
   if(!world)return;const seconds=t/1000;
+  const dt=world.lastAtmosphereTime?Math.min(.1,Math.max(0,(t-world.lastAtmosphereTime)/1000)):0;world.lastAtmosphereTime=t;
+  if(dt&&Math.abs(world.targetEvening-world.evening)>.0001){const next=world.evening+Math.sign(world.targetEvening-world.evening)*Math.min(dt,Math.abs(world.targetEvening-world.evening));applyAtmosphere(world,next);}
   if(world.clouds)world.clouds.material.uniforms.time.value=seconds;
   if(world.banners?.userData.shader)world.banners.userData.shader.uniforms.uBannerTime.value=seconds;
   if(world.grassMaterial?.userData.shader)world.grassMaterial.userData.shader.uniforms.uWindTime.value=seconds;
   if(world.pollen?.userData.base){const dummy=new THREE.Object3D();world.pollen.userData.base.forEach((p,i)=>{dummy.position.set(p.x,Math.max(.5,p.y+Math.sin(seconds*.7+i)*.22),p.z);const fade=camera?THREE.MathUtils.smoothstep(camera.position.distanceTo(dummy.position),1.5,6):1;dummy.scale.setScalar(.035*fade);dummy.updateMatrix();world.pollen.setMatrixAt(i,dummy.matrix);});world.pollen.instanceMatrix.needsUpdate=true;}
+  animateParticles(world,seconds,dt,camera);
 }
 
 const rimMaterials=new WeakMap();

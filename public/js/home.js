@@ -24,7 +24,7 @@ export class HomeArena {
     const root=model.root,wasInScene=root.parent===this.scene,oldPos=root.position.clone(),oldRot=root.rotation.clone(),vis=this.scene.children.map(o=>[o,o.visible]),target=new THREE.WebGLRenderTarget(160,192),tempCam=new THREE.PerspectiveCamera(34,160/192,.1,20),px=new Uint8Array(160*192*4);
     try{
       if(!wasInScene)this.scene.add(root);this.scene.children.forEach(o=>o.visible=o===root||o.isLight);root.position.set(0,0,0);root.rotation.set(0,0,0);tempCam.position.set(2.5,1.35,3.6);tempCam.lookAt(0,.9,0);this.renderer.setRenderTarget(target);this.renderer.render(this.scene,tempCam);this.renderer.readRenderTargetPixels(target,0,0,160,192,px);
-      const c=document.createElement('canvas');c.width=160;c.height=192;const cx=c.getContext('2d');if(!cx)return;const im=cx.createImageData(160,192);for(let y=0;y<192;y++)im.data.set(px.subarray((191-y)*640,(192-y)*640),y*640);cx.putImageData(im,0,0);document.querySelectorAll(`[data-fighter-preview="${kind}"]`).forEach(img=>img.src=c.toDataURL());
+      const c=document.createElement('canvas');c.width=160;c.height=192;const cx=c.getContext('2d');if(!cx)return;const im=cx.createImageData(160,192);for(let y=0;y<192;y++)im.data.set(px.subarray((191-y)*640,(192-y)*640),y*640);cx.putImageData(im,0,0);const previewUrl=c.toDataURL();window.fighterPreviewUrls??={};window.fighterPreviewUrls[kind]=previewUrl;document.querySelectorAll(`[data-fighter-preview="${kind}"]`).forEach(img=>img.src=previewUrl);
     }catch{}
     finally{this.renderer.setRenderTarget(null);target.dispose();root.position.copy(oldPos);root.rotation.copy(oldRot);vis.forEach(([o,v])=>o.visible=v);if(!wasInScene)this.scene.remove(root);}
   }

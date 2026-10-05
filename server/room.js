@@ -39,7 +39,7 @@ export class RoomManager {
     if(oldSocket!==socket&&oldSocket?.readyState===1)oldSocket.close(4001,'Session resumed elsewhere');
     const remaining=Math.max(0,Math.ceil(((room.phase==='fight'?room.endsAt:room.phase==='between'?room.betweenUntil:room.startedAt)-t)/1000));
     room.broadcast({type:'reconnected',player:p.id});
-    return {type:'rejoined',code:room.code,player:p.id,token:p.rejoinToken,phase:room.phase,serverTime:t,remaining,endsAt:room.endsAt,round:room.round,scores:room.roundScores,players:room.publicPlayers(),items:room.items};
+    return {type:'rejoined',code:room.code,player:p.id,token:p.rejoinToken,phase:room.phase,serverTime:t,remaining,endsAt:room.endsAt,round:room.round,scores:room.roundScores,timeOfDay:room.timeOfDay,players:room.publicPlayers(),items:room.items};
   }
   delete(code) { this.rooms.delete(code); }
 }
@@ -129,13 +129,13 @@ class Room {
     }
   }
   start() {
-    this.round=1;this.roundScores=[0,0];this.roundHistory=[];this.matchStats=this.players.map(()=>({damage:0,hits:0,swings:0,parries:0,blocks:0,specials:0}));this.result=null;this.tutorialActive=this.practice&&this.tutorialRequested;this.tutorialStep=this.tutorialActive?1:0;this.tutorialHits=0;this.tutorialBotAttacks=0;this.tutorialAdvanceAt=0;this.tutorialCompleting=false;this.beginRound(true);
+    this.timeOfDay=Math.random()<.5?'day':'evening';this.round=1;this.roundScores=[0,0];this.roundHistory=[];this.matchStats=this.players.map(()=>({damage:0,hits:0,swings:0,parries:0,blocks:0,specials:0}));this.result=null;this.tutorialActive=this.practice&&this.tutorialRequested;this.tutorialStep=this.tutorialActive?1:0;this.tutorialHits=0;this.tutorialBotAttacks=0;this.tutorialAdvanceAt=0;this.tutorialCompleting=false;this.beginRound(true);
   }
   beginRound(initial=false) {
     this.phase=initial?'countdown':'fight';this.items=[];this.pending=[];this.startedAt=now()+(initial?COUNTDOWN_SECONDS*1000:0);this.endsAt=this.startedAt+MATCH_SECONDS*1000;this.lastDrop=this.startedAt+DROP_RULES.firstMinSeconds*1000+Math.random()*(DROP_RULES.firstMaxSeconds-DROP_RULES.firstMinSeconds)*1000;
     for(const p of this.players){const s=SPAWNS[p.id],t=now();Object.assign(p,{x:s.x,y:0,z:s.z,yaw:s.yaw,mt:t,pitch:0,hp:MATCH_HP,stamina:STAMINA.max,sp:0,lastSpend:0,lastMove:t,moveBudget:0,corr:0,ready:false,rematch:false,block:false,blockAt:0,blockOffAt:0,swing:null,special:null,specialQueue:null,nextAttack:0,nextParry:0,stunUntil:0,lockedUntil:0,lastDash:0,dashUntil:0,weapon:this.tutorialActive?'sword':'fists',shield:false,defZeroUntil:0,bonusUntil:0,attackBoostUntil:0,alive:true,history:[]});p.history.push({t,x:p.x,z:p.z,yaw:p.yaw});}
     for(const p of this.players)if(p.isBot){const c=this.botConfig(p);Object.assign(p,{botNextThink:now(),botNextAttack:now(),botResting:false,botDefense:null,botBlockRelease:0,botLastTick:now(),botSteerSide:0,botSteerUntil:0,botReactionMs:c.reactionMinMs?c.reactionMinMs+Math.random()*(c.reactionMaxMs-c.reactionMinMs):c.reactionMs,botParryPunish:false,botDodgeUntil:0});}
-    if(initial){this.broadcast({type:'started',practice:this.practice,players:this.publicPlayers(),countdown:COUNTDOWN_SECONDS,round:this.round,scores:this.roundScores});if(this.tutorialActive)this.setTutorialStep(1);}
+    if(initial){this.broadcast({type:'started',practice:this.practice,players:this.publicPlayers(),countdown:COUNTDOWN_SECONDS,round:this.round,scores:this.roundScores,timeOfDay:this.timeOfDay});if(this.tutorialActive)this.setTutorialStep(1);}
     else this.broadcast({type:'fight',endsAt:this.endsAt,round:this.round,scores:this.roundScores,phase:'fight',remaining:MATCH_SECONDS,serverTime:now(),players:this.publicPlayers(),items:[]});
   }
   move(id, msg) {

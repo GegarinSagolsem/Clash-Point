@@ -1,15 +1,18 @@
 # Clash Point
 
-Clash Point is a browser-based first-person arena fighter for two players. Create a room and share its code or invite link, or practise alone against an easy bot.
+Clash Point is a browser-based first-person 1v1 sword duel. Matches are best of three 90-second rounds. Choose Knight, Barbarian or Rogue, then fight a friend or practise against Easy, Normal or Hard bots. A guided tutorial introduces the first match. Each match gets a random day or evening sky.
+
+## Play with a friend
+
+Create a room and invite someone with its four-letter code, a copied invite link, the Share action, or its QR code. When regional servers are configured, choose a region: Singapore, Frankfurt, US East (Virginia), or US West (Oregon).
 
 ## How to play
 
-- Move with **WASD**, look with the mouse, jump with **Space**, and dash with **Shift**. Click the arena to lock the mouse; press **Esc** to pause.
-- Click to attack and to try a parry. Hold **right mouse** or **C** to block. Press **F** near a dropped sword or spear to swap weapons, **G** to drop your weapon or shield, and **E** to use a ready special.
-- Start with fists. Swords deal strong close-range slashes; spears thrust along a narrow line at longer range. Shields add defence and improve blocking.
-- Fill the SP meter by taking damage, blocking, or parrying. With a sword, **E** unleashes Double Strike; with a spear it triggers Lunge; with only a shield it performs Shield Bash.
-- Choose **Practice vs bot** on Home to start a solo match against Bot · Easy.
-- Touch devices show on-screen movement and action controls automatically.
+On keyboard and mouse, move with **W A S D**, look with the mouse, attack and attempt a parry with left click, block with right click or **C**, jump with **Space**, dash with **Shift**, pick up or swap near a weapon with **F**, drop with **G**, use a ready special with **E**, and pause with **Esc**. Click the arena to lock the mouse.
+
+On phones, move with the stick on the left; **Block**, **Dash**, **Special** and **Jump** sit around the big **Attack** button on the right. **Pick up** appears near items, and **Drop** appears while carrying a weapon or shield. **☰** opens the pause menu and **⛶** requests full screen. On iPhone, use **Share → Add to Home Screen** to play full screen.
+
+A parry is an attack in the final **0.22 seconds** before an incoming hit lands, while facing its attacker.
 
 ## Run locally
 
@@ -34,4 +37,9 @@ Host the always-on front page as a static site by running `npm run build:static`
 
 ## Credits
 
-The game uses Kenney RPG Audio and Impact Sounds (CC0), and KayKit Adventurers models by Kay Lousberg (CC0); see [`public/models/LICENSE.txt`](public/models/LICENSE.txt) for details. Rendering uses [three.js](https://threejs.org/) (MIT); the server uses [Express](https://expressjs.com/) (MIT) and [ws](https://github.com/websockets/ws) (MIT). The code was written with ChatGPT.
+- Characters and models (Knight, Barbarian, Rogue): KayKit Adventurers by Kay Lousberg, Creative Commons Zero (CC0); see [`public/models/LICENSE.txt`](public/models/LICENSE.txt).
+- Sound effects: Kenney, RPG Audio and Impact Sounds, CC0; and artisticdude, RPG Sound Pack and Swishes Sound Pack, CC0. Some effects were synthesized and combined for Clash Point; see [`public/sounds/LICENSE.txt`](public/sounds/LICENSE.txt).
+- Fight music: **“Taiko drums (seamless loop)” by jobro**, [OpenGameArt](https://opengameart.org/content/taiko-drums-seamless-loop), Creative Commons Attribution 3.0 (CC-BY 3.0). Re-encoded as MP3 and levelled; see [`public/music/LICENSE.txt`](public/music/LICENSE.txt).
+- Menu theme: original music made for Clash Point, CC0; see [`public/music/LICENSE.txt`](public/music/LICENSE.txt).
+- Rendering: [three.js](https://threejs.org/), MIT. QR codes: [qrcode](https://www.npmjs.com/package/qrcode), MIT.
+- Built with ChatGPT.

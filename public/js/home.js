@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { loadFighter, playAnimation } from './models.js';
+import { warmGameAssets } from './game.js';
 import { addFresnelRim, animateArena, createArena, setArenaTimeOfDay, warmArenaAtmosphere } from './world.js';
 import { preferences } from './preferences.js';
 
@@ -12,21 +13,14 @@ export class HomeArena {
     this.loop=this.loop.bind(this);this.loadModels();
   }
   async loadModels(){
+    const fighterPromise=Promise.all(['Knight','Barbarian','Rogue'].map(async kind=>[kind,await loadFighter(kind).catch(()=>null)]));
     await this.arenaWarmup;if(!this.running)return;
+    const fighters=await fighterPromise;if(!this.running)return;
     for(const [kind,x,yaw] of [['Knight',-2.1,Math.PI/2],['Barbarian',2.1,-Math.PI/2]]){
-      try{const model=await loadFighter(kind);if(!this.running)return;model.root.position.set(x,0,0);model.root.rotation.y=yaw;addFresnelRim(model);this.scene.add(model.root);this.makePreview(model,kind);playAnimation(model,'Idle');this.models.push({model,nextCheer:performance.now()+9000+Math.random()*9000,cheering:false});}
-      catch{}
+      const model=fighters.find(([name])=>name===kind)?.[1];if(!model)continue;model.root.position.set(x,0,0);model.root.rotation.y=yaw;addFresnelRim(model);this.scene.add(model.root);playAnimation(model,'Idle');this.models.push({model,nextCheer:performance.now()+9000+Math.random()*9000,cheering:false});
     }
-    try{const rogue=await loadFighter('Rogue');if(this.running)this.makePreview(rogue,'Rogue');}catch{}
+    warmGameAssets(['Knight','Barbarian','Rogue']).catch(()=>{});
     if(this.active)this.schedule();
-  }
-  makePreview(model,kind){
-    const root=model.root,wasInScene=root.parent===this.scene,oldPos=root.position.clone(),oldRot=root.rotation.clone(),vis=this.scene.children.map(o=>[o,o.visible]),target=new THREE.WebGLRenderTarget(160,192),tempCam=new THREE.PerspectiveCamera(34,160/192,.1,20),px=new Uint8Array(160*192*4);
-    try{
-      if(!wasInScene)this.scene.add(root);this.scene.children.forEach(o=>o.visible=o===root||o.isLight);root.position.set(0,0,0);root.rotation.set(0,0,0);tempCam.position.set(2.5,1.35,3.6);tempCam.lookAt(0,.9,0);this.renderer.setRenderTarget(target);this.renderer.render(this.scene,tempCam);this.renderer.readRenderTargetPixels(target,0,0,160,192,px);
-      const c=document.createElement('canvas');c.width=160;c.height=192;const cx=c.getContext('2d');if(!cx)return;const im=cx.createImageData(160,192);for(let y=0;y<192;y++)im.data.set(px.subarray((191-y)*640,(192-y)*640),y*640);cx.putImageData(im,0,0);const previewUrl=c.toDataURL();window.fighterPreviewUrls??={};window.fighterPreviewUrls[kind]=previewUrl;document.querySelectorAll(`[data-fighter-preview="${kind}"]`).forEach(img=>img.src=previewUrl);
-    }catch{}
-    finally{this.renderer.setRenderTarget(null);target.dispose();root.position.copy(oldPos);root.rotation.copy(oldRot);vis.forEach(([o,v])=>o.visible=v);if(!wasInScene)this.scene.remove(root);}
   }
   setActive(active){this.active=active;if(active)this.schedule();}
   setTimeOfDay(value){setArenaTimeOfDay(this.world,value==='random'?this.pageRandomTimeOfDay:value);}

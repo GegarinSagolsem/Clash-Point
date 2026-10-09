@@ -8,6 +8,7 @@
   <script type="importmap">{"imports":{"three":"/vendor/three/build/three.module.js","three/addons/":"/vendor/three/examples/jsm/"}}</script>
 </head>
 <body>
+  <section id="loadingScreen" class="loading-screen" role="status" aria-live="polite"><div class="loading-content"><h1 class="brand-logo">CLASH POINT</h1><div class="loading-track" aria-hidden="true"><i id="loadingBar"></i></div><p id="loadingStatus">Loading…</p><p id="loadingSeconds" class="muted"></p><button id="loadingSkip" type="button" class="quiet" hidden>Enter anyway</button></div></section>
   <div id="homeArena" class="home-arena" aria-hidden="true"></div><div id="menuArenaShade" class="menu-arena-shade" aria-hidden="true"></div>
   <main id="home" class="screen active"><section class="card home-card"><div class="eyebrow">A REAL-TIME DUEL</div><h1 class="brand-logo">CLASH POINT</h1><button id="fullscreenHome" type="button" class="quiet touch-only fullscreen-home">⛶ Play full screen</button><p class="muted">Two fighters. One arena. Settle it with steel.</p><div id="regionPicker" class="region-picker hidden"></div>
       <label for="name">Your name</label><input id="name" maxlength="16" autocomplete="nickname" placeholder="Iron Fox">

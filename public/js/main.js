@@ -7,8 +7,39 @@ const $=id=>document.getElementById(id);const screens=['home','lobby','gameScree
 const touchDevice=('ontouchstart' in window)||navigator.maxTouchPoints>0||matchMedia('(pointer: coarse)').matches;if(touchDevice)document.body.classList.add('touch-device');
 const homeArena=new HomeArena($('homeArena'));warmGameArena();
 const servers=window.GAME_SERVERS||{},online=Object.keys(servers).length>1;let selectedRegion=localStorage.getItem('area-duel-region')||'',activeHost=location.host;
-if(online){const picker=$('regionPicker');picker.classList.remove('hidden');for(const r of REGIONS){if(!servers[r.id])continue;const b=document.createElement('button');b.type='button';b.className='region-option';b.textContent=`${r.name} · …`;b.dataset.region=r.id;b.onclick=()=>{selectedRegion=r.id;localStorage.setItem('area-duel-region',r.id);document.querySelectorAll('.region-option').forEach(x=>x.classList.toggle('selected',x===b));};picker.append(b);}probeRegions();}
-async function probeRegions(){let best=null,bestMs=Infinity;await Promise.all(REGIONS.filter(r=>servers[r.id]).map(async r=>{const b=document.querySelector(`[data-region="${r.id}"]`);try{const samples=[];for(let i=0;i<3;i++){const start=performance.now(),res=await fetch(`${servers[r.id].replace(/\/$/,'')}/health`,{signal:AbortSignal.timeout(2000)});if(!res.ok)throw 0;samples.push(performance.now()-start);}const ms=Math.round(samples.reduce((a,x)=>a+x,0)/samples.length);b.textContent=`${r.name} · ${ms} ms`;b.dataset.ms=ms;if(ms<bestMs){bestMs=ms;best=r.id;}}catch{b.textContent=`${r.name} · asleep`;b.dataset.ms='99999';}}));if(!localStorage.getItem('area-duel-region')&&best){selectedRegion=best;localStorage.setItem('area-duel-region',best);}document.querySelector(`[data-region="${selectedRegion}"]`)?.classList.add('selected');}
+if(online){const picker=$('regionPicker');picker.classList.remove('hidden');for(const r of REGIONS){if(!servers[r.id])continue;const b=document.createElement('button');b.type='button';b.className='region-option';b.textContent=`${r.name} · …`;b.dataset.region=r.id;b.onclick=()=>{selectedRegion=r.id;localStorage.setItem('area-duel-region',r.id);document.querySelectorAll('.region-option').forEach(x=>x.classList.toggle('selected',x===b));};picker.append(b);}}
+const probePromise=probeRegions();bootLoading();
+async function probeRegions(){let best=null,bestMs=Infinity;await Promise.all(REGIONS.filter(r=>servers[r.id]).map(async r=>{const b=document.querySelector(`[data-region="${r.id}"]`);try{const samples=[];for(let i=0;i<3;i++){const start=performance.now(),res=await fetch(`${servers[r.id].replace(/\/$/,'')}/health`,{signal:AbortSignal.timeout(2000)});if(!res.ok)throw 0;samples.push(performance.now()-start);}const ms=Math.round(samples.reduce((a,x)=>a+x,0)/samples.length);b.textContent=`${r.name} · ${ms} ms`;b.dataset.ms=ms;if(ms<bestMs){bestMs=ms;best=r.id;}}catch{b.textContent=`${r.name} · asleep`;b.dataset.ms='99999';}}));if(!localStorage.getItem('area-duel-region')&&best){selectedRegion=best;localStorage.setItem('area-duel-region',best);}document.querySelector(`[data-region="${selectedRegion}"]`)?.classList.add('selected');return best;}
+function wait(ms){return new Promise(resolve=>setTimeout(resolve,ms));}
+function setLoading(percent,status){$('loadingBar').style.width=`${percent}%`;if(status)$('loadingStatus').textContent=status;}
+let loadingFinished=false,loadingHidden=false;
+function finishLoading(){if(loadingHidden)return;loadingHidden=true;loadingFinished=true;$('loadingSkip').hidden=true;$('loadingBar').style.width='100%';$('loadingStatus').textContent='Ready';$('loadingScreen').classList.add('done');document.body.dataset.loaded='1';setTimeout(()=>$('loadingScreen').setAttribute('hidden',''),400);}
+$('loadingSkip').addEventListener('click',finishLoading);
+setTimeout(()=>{if(!loadingFinished)$('loadingSkip').hidden=false;},12000);
+async function bootLoading(){
+  setLoading(0,'Loading the fighters…');
+  await Promise.race([homeArena.ready,wait(25000)]);
+  setLoading(60,online?'Finding the nearest arena…':'Ready');
+  if(online){
+    await probePromise;
+    const selectedButton=document.querySelector(`[data-region="${selectedRegion}"]`);
+    const selectedAwake=!!selectedButton&&selectedButton.dataset.ms!=='99999';
+    if(!selectedAwake){
+      const deadline=Date.now()+90000,started=Date.now(),saved=localStorage.getItem('area-duel-region'),known=[];let firstAt=null;
+      setLoading(75,`Waking up the ${REGIONS.find(r=>r.id===saved)?.name||'nearest'} arena…`);
+      const ping=async r=>{const button=document.querySelector(`[data-region="${r.id}"]`),begin=performance.now();try{const res=await fetch(`${servers[r.id].replace(/\/$/,'')}/health`,{signal:AbortSignal.timeout(2000)});if(!res.ok)throw 0;const ms=Math.round(performance.now()-begin);button.textContent=`${r.name} · ${ms} ms`;button.dataset.ms=String(ms);if(!known.some(x=>x.id===r.id))known.push({id:r.id,ms});return true;}catch{button.textContent=`${r.name} · asleep`;button.dataset.ms='99999';return false;}};
+      while(Date.now()<deadline){
+        const elapsed=(Date.now()-started)/1000,progress=75+Math.min(24,elapsed/90*24);setLoading(progress,`Waking up the ${REGIONS.find(r=>r.id===saved)?.name||'nearest'} arena…`);$('loadingSeconds').textContent=`${Math.floor(elapsed)} seconds · free servers nap when nobody plays`;
+        const regions=saved?REGIONS.filter(r=>r.id===saved&&servers[r.id]):REGIONS.filter(r=>servers[r.id]);const results=await Promise.all(regions.map(async r=>[r.id,await ping(r)]));
+        if(saved&&results.some(([,ok])=>ok)){selectedRegion=saved;document.querySelectorAll('.region-option').forEach(b=>b.classList.toggle('selected',b.dataset.region===saved));break;}
+        if(!saved&&known.length){if(firstAt===null)firstAt=Date.now();if(Date.now()-firstAt>=4000){known.sort((a,b)=>a.ms-b.ms);selectedRegion=known[0].id;localStorage.setItem('area-duel-region',selectedRegion);document.querySelectorAll('.region-option').forEach(b=>b.classList.toggle('selected',b.dataset.region===selectedRegion));break;}}
+        if(Date.now()>=deadline)break;await wait(Math.min(2000,deadline-Date.now()));
+      }
+      if(Date.now()>=deadline&&!known.length)$('loadingStatus').textContent='The arena is still asleep. You can enter and try again.';
+    }
+  }
+  finishLoading();
+}
 const show=id=>{for(const x of screens)$(x).classList.toggle('active',x===id||id==='result'&&x==='gameScreen');$('gameScreen').classList.toggle('results-mode',id==='result');if(id==='result')$('fullscreenTip').classList.add('hidden');homeArena.setActive(id==='home'||id==='lobby'||id==='how');$('menuArenaShade').classList.toggle('active',id==='lobby'||id==='how');setMusicTheme(id==='gameScreen'?'fight':'menu');};homeArena.setActive(true);
 const send=data=>{if(socket?.readyState===WebSocket.OPEN)socket.send(JSON.stringify(data));};
 const connect=()=>{
@@ -128,3 +159,4 @@ function setupTouchControls(){
 setupTouchControls();
 document.addEventListener('pointerdown',e=>{if(!audioUnlocked){audioUnlocked=true;ensureAudio();}if(touchDevice&&e.pointerType==='touch'&&$('gameScreen').classList.contains('active'))$('audioHint').classList.add('hidden');},true);document.addEventListener('keydown',()=>{if(!audioUnlocked){audioUnlocked=true;ensureAudio();}},true);
 const savedSession=sessionStorage.getItem('duel-session'),invite=new URLSearchParams(location.search).get('room');if(savedSession)startRejoinLoop();else if(invite){$('roomCode').value=invite.toUpperCase();makeRoom('join');}
+

@@ -10,7 +10,7 @@ export class HomeArena {
     this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));this.renderer.setSize(innerWidth,innerHeight);this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=THREE.PCFSoftShadowMap;mount.append(this.renderer.domElement);
     this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(innerWidth<=600?78:43,innerWidth/innerHeight,.1,280);this.pageRandomTimeOfDay=Math.random()<.5?'day':'evening';this.world=createArena(this.scene,this.renderer,{timeOfDay:preferences.timeOfDay==='random'?this.pageRandomTimeOfDay:preferences.timeOfDay});this.arenaWarmup=warmArenaAtmosphere(this.world,this.scene,this.renderer,this.camera);
     this.resize=()=>{this.camera.aspect=innerWidth/innerHeight;this.camera.fov=innerWidth<=600?78:43;this.camera.far=280;this.camera.updateProjectionMatrix();this.renderer.setSize(innerWidth,innerHeight);};window.addEventListener('resize',this.resize);
-    this.loop=this.loop.bind(this);this.loadModels();
+    this.loop=this.loop.bind(this);this.ready=this.loadModels();
   }
   async loadModels(){
     const fighterPromise=Promise.all(['Knight','Barbarian','Rogue'].map(async kind=>[kind,await loadFighter(kind).catch(()=>null)]));
@@ -19,8 +19,8 @@ export class HomeArena {
     for(const [kind,x,yaw] of [['Knight',-2.1,Math.PI/2],['Barbarian',2.1,-Math.PI/2]]){
       const model=fighters.find(([name])=>name===kind)?.[1];if(!model)continue;model.root.position.set(x,0,0);model.root.rotation.y=yaw;addFresnelRim(model);this.scene.add(model.root);playAnimation(model,'Idle');this.models.push({model,nextCheer:performance.now()+9000+Math.random()*9000,cheering:false});
     }
-    warmGameAssets(['Knight','Barbarian','Rogue']).catch(()=>{});
     if(this.active)this.schedule();
+    await warmGameAssets(['Knight','Barbarian','Rogue']).catch(()=>{});
   }
   setActive(active){this.active=active;if(active)this.schedule();}
   setTimeOfDay(value){setArenaTimeOfDay(this.world,value==='random'?this.pageRandomTimeOfDay:value);}
